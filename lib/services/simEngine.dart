@@ -102,8 +102,9 @@ class SimulationEngine {
   }) {
     int pts = 0;
 
-    if      (starRating >= 5.0) pts += 60;
-    else if (starRating >= 4.5) pts += 50;
+    if      (starRating >= 5.0) {
+      pts += 60;
+    } else if (starRating >= 4.5) pts += 50;
     else if (starRating >= 4.0) pts += 40;
     else if (starRating >= 3.5) pts += 30;
     else if (starRating >= 3.0) pts += 20;
@@ -113,8 +114,9 @@ class SimulationEngine {
     if (cardPosition == 'Main Event') pts += 10;
     if (cardPosition == 'Opener' && starRating >= 3.5) pts += 5;
     if (allMatchesBooked) pts += 10;
-    if (showAvgRating >= 4.5) pts += 25;
-    else if (showAvgRating >= 3.75) pts += 15;
+    if (showAvgRating >= 4.5) {
+      pts += 25;
+    } else if (showAvgRating >= 3.75) pts += 15;
 
     return pts;
   }
@@ -128,8 +130,9 @@ class SimulationEngine {
   }) {
     int delta = 0;
 
-    if      (starRating >= 4.5) delta += 5;
-    else if (starRating >= 3.75) delta += 3;
+    if      (starRating >= 4.5) {
+      delta += 5;
+    } else if (starRating >= 3.75) delta += 3;
     else if (starRating >= 3.0)  delta += 1;
     else if (starRating < 1.5)   delta -= 4;
     else if (starRating < 2.0)   delta -= 2;

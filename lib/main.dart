@@ -1,41 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'services/wrestlerService.dart';
-import 'services/simEngine.dart';
-import 'models/wrestler.dart';
+import 'viewmodels/draft_VM.dart';
+import 'views/welcomeScreen.dart';
+import 'views/loginScreen.dart';
+import 'views/homeScreen.dart';
+import 'views/draftScreen.dart';
+import 'views/bookingScreen.dart';
+import 'views/resultsScreen.dart';
+import 'views/statsScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   final wrestlers = await WrestlerService.loadWrestlers();
-  for (var w in wrestlers) {
-    print('${w.name} | ${w.wrestlerClass} | inRing: ${w.inRing} | salary: \$${w.salary}k | canBook: ${w.canBeBooked}');
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => DraftViewModel(
+        pool: wrestlers,
+        startingBudget: 15000,
+      ),
+      child: const WrestlerApp(),
+    ),
+  );
+}
+
+class WrestlerApp extends StatelessWidget {
+  const WrestlerApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'wRESTler Fantasy Booker',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: Colors.black,
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFCC0000),
+          secondary: Color(0xFFCC0000),
+        ),
+        fontFamily: 'Arial', // swap for a custom font later
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFFCC0000),
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ),
+
+      // Welcome screen is the entry point
+      initialRoute: '/welcome',
+
+      routes: {
+        '/welcome': (context) => const WelcomeScreen(),
+        '/login':   (context) => const LoginScreen(),
+        '/home':    (context) => const HomeScreen(),
+        '/draft':   (context) => const DraftScreen(),
+        '/booking': (context) => const BookingScreen(),
+        '/results': (context) => const ResultsScreen(),
+        '/stats':   (context) => const StatsScreen(),
+      },
+    );
   }
-
-  final engine = SimulationEngine();
-
-  final cody = wrestlers.firstWhere((w) => w.name == 'Cody Rhodes');
-  final gunther = wrestlers.firstWhere((w) => w.name == 'Gunther');
-
-  double rating = engine.simulateRating(
-    w1: cody, w2: gunther, matchType: 'Championship'
-  );
-  Wrestler winner = engine.determineWinner(cody, gunther);
-  int points = engine.calculatePoints(
-    starRating: rating,
-    correctPrediction: true,
-    wasUpset: false,
-    cardPosition: 'Main Event',
-    allMatchesBooked: true,
-    showAvgRating: rating,
-  );
-
-  print('--- MATCH SIMULATION ---');
-  print('${cody.name} vs ${gunther.name}');
-  print('Rating: $rating stars');
-  print('Winner: ${winner.name}');
-  print('Points earned: $points');
-
-  runApp(const MaterialApp(
-    home: Scaffold(body: Center(child: Text('Sim test — check terminal')))
-  ));
 }
