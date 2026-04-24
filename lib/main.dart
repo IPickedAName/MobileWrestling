@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'services/wrestlerService.dart';
 import 'viewmodels/draft_VM.dart';
+import 'viewmodels/simVM.dart';
 import 'views/welcomeScreen.dart';
 import 'views/loginScreen.dart';
 import 'views/homeScreen.dart';
@@ -20,18 +21,22 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-  } on FirebaseException catch (e) {
-    if (e.code != 'duplicate-app') rethrow;
+  } catch (_) {
+    // Firebase unsupported on this platform (web, Windows) — local logic still works
   }
 
   final wrestlers = await WrestlerService.loadWrestlers();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => DraftViewModel(
-        pool: wrestlers,
-        startingBudget: 15000,
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => DraftViewModel(pool: wrestlers, startingBudget: 15000),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => SimViewModel(),
+        ),
+      ],
       child: const WrestlerApp(),
     ),
   );
