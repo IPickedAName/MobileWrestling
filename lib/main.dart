@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'firebase_options.dart';
 import 'services/wrestlerService.dart';
 import 'viewmodels/draft_VM.dart';
 import 'views/welcomeScreen.dart';
@@ -9,9 +11,19 @@ import 'views/draftScreen.dart';
 import 'views/bookingScreen.dart';
 import 'views/resultsScreen.dart';
 import 'views/statsScreen.dart';
+import 'views/profileScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
+
   final wrestlers = await WrestlerService.loadWrestlers();
 
   runApp(
@@ -40,7 +52,7 @@ class WrestlerApp extends StatelessWidget {
           primary: Color(0xFFCC0000),
           secondary: Color(0xFFCC0000),
         ),
-        fontFamily: 'Arial', // swap for a custom font later
+        fontFamily: 'Arial',
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
@@ -54,7 +66,6 @@ class WrestlerApp extends StatelessWidget {
         ),
       ),
 
-      // Welcome screen is the entry point
       initialRoute: '/welcome',
 
       routes: {
@@ -65,6 +76,7 @@ class WrestlerApp extends StatelessWidget {
         '/booking': (context) => const BookingScreen(),
         '/results': (context) => const ResultsScreen(),
         '/stats':   (context) => const StatsScreen(),
+        '/profile': (context) => const ProfileScreen(),
       },
     );
   }

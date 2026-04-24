@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "6432039174",
+    "project_id": "wrestler-66b71",
+    "storage_bucket": "wrestler-66b71.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:6432039174:android:0a2efa6deaceb35f94be87",
+        "android_client_info": {
+          "package_name": "com.example.wrestler_fantasy_booker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxLkH3sg_agAIEhOLSN8yS_orQnH3T1MA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

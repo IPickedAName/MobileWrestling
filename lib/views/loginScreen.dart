@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../auth_viewmodel.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _isSignUp = false;
+  String _errorMessage = '';
 
   late AnimationController _controller;
   late Animation<double> _fadeIn;
@@ -42,15 +44,22 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() { _isLoading = true; _errorMessage = ''; });
 
-    setState(() => _isLoading = true);
-
-    // TODO: wire Firebase Auth here
-    await Future.delayed(const Duration(seconds: 2)); // placeholder
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-      Navigator.pushReplacementNamed(context, '/home');
+    try {
+      final auth = AuthViewModel();
+      if (_isSignUp) {
+        await auth.register(_emailController.text, _passwordController.text);
+      } else {
+        await auth.login(_emailController.text, _passwordController.text);
+      }
+      if (mounted) Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _errorMessage = e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -226,6 +235,17 @@ class _LoginScreenState extends State<LoginScreen>
                                           fontSize: 12,
                                         ),
                                       ),
+                                    ),
+                                  ),
+                                ],
+
+                                if (_errorMessage.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _errorMessage,
+                                    style: const TextStyle(
+                                      color: Colors.redAccent,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ],
