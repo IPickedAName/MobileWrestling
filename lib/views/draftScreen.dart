@@ -123,7 +123,7 @@ class _DraftScreenState extends State<DraftScreen> {
                     color: const Color(0xFF1a3a1a),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFF4ade80), width: 0.5)),
-                  child: const Text('⚡ Auto Fill',
+                  child: const Text('⚡ Auto Draft',
                     style: TextStyle(color: Color(0xFF4ade80), fontSize: 12,
                       fontWeight: FontWeight.w600)),
                 ),
@@ -423,7 +423,7 @@ class _DraftScreenState extends State<DraftScreen> {
                 ]),
                 const SizedBox(height: 6),
                 SizedBox(
-                  height: 48,
+                  height: 58,
                   child: vm.myRoster.isEmpty
                     ? const Center(child: Text('None yet',
                         style: TextStyle(color: Colors.grey,
@@ -466,7 +466,7 @@ class _DraftScreenState extends State<DraftScreen> {
                 ]),
                 const SizedBox(height: 6),
                 SizedBox(
-                  height: 48,
+                  height: 58,
                   child: vm.aiRoster.isEmpty
                     ? const Center(child: Text('Waiting...',
                         style: TextStyle(color: Colors.grey,
@@ -494,14 +494,15 @@ class _DraftScreenState extends State<DraftScreen> {
       Color salaryColor, Color nameColor) {
     return Container(
       margin: const EdgeInsets.only(right: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: salaryColor.withOpacity(0.3), width: 0.5)),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(w.name.split(' ').first,
             style: TextStyle(color: nameColor, fontSize: 11)),

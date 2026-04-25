@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/wrestler.dart';
-import '../services/draftAI.dart';
+import '../services/draft_picker.dart';
 
 class DraftViewModel extends ChangeNotifier {
   static const String universalTitle = 'Universal Champion';
@@ -17,10 +17,11 @@ class DraftViewModel extends ChangeNotifier {
   bool isMyTurn = true;
   int pickNumber = 1;
   bool draftComplete = false;
+  bool playerChampionsChosen = false;
   String lastPickMessage = '';
 
   static const int minRosterSize = 10;
-  final DraftAI _ai = DraftAI();
+  final DraftPicker _ai = DraftPicker();
 
   DraftViewModel({required List<Wrestler> pool, required this.startingBudget})
       : pool = List.from(pool),
@@ -62,8 +63,7 @@ class DraftViewModel extends ChangeNotifier {
     if (pool.isEmpty || draftComplete) return;
     if (aiRoster.length >= minRosterSize && pool.length <= 5) {
       draftComplete = true;
-      _assignChampionsAfterDraft();
-      lastPickMessage = 'AI ended the draft';
+      lastPickMessage = 'AI ended the draft. Choose your champions next.';
       notifyListeners();
       return;
     }
@@ -81,8 +81,7 @@ class DraftViewModel extends ChangeNotifier {
   void playerEndsDraft() {
     if (!canEndDraft) return;
     draftComplete = true;
-    _assignChampionsAfterDraft();
-    lastPickMessage = 'Draft locked. Champions assigned.';
+    lastPickMessage = 'Draft locked. Choose your champions next.';
     notifyListeners();
   }
 
@@ -92,7 +91,7 @@ class DraftViewModel extends ChangeNotifier {
         (w) => w.salary > myBudget && w.salary > aiBudget);
     if (poolEmpty || cantAfford) {
       draftComplete = true;
-      _assignChampionsAfterDraft();
+      lastPickMessage = 'Draft complete. Choose your champions next.';
       notifyListeners();
     }
   }
@@ -152,14 +151,26 @@ class DraftViewModel extends ChangeNotifier {
     isMyTurn = true;
     pickNumber = 1;
     draftComplete = false;
+    playerChampionsChosen = false;
     lastPickMessage = '';
-    _clearChampionships(pool);
+    _clearChampionships(_fullPool);
     notifyListeners();
   }
 
-  void _assignChampionsAfterDraft() {
-    _assignChampionsForRoster(myRoster);
+  bool get needsChampionSelection => draftComplete && !playerChampionsChosen;
+
+  void assignChampions({
+    required Wrestler universalChampion,
+    required Wrestler intercontinentalChampion,
+  }) {
+    if (universalChampion.name == intercontinentalChampion.name) return;
+
+    _clearChampionships(_fullPool);
+    universalChampion.championshipTitle = universalTitle;
+    intercontinentalChampion.championshipTitle = intercontinentalTitle;
+    playerChampionsChosen = true;
     _assignChampionsForRoster(aiRoster);
+    notifyListeners();
   }
 
   void _assignChampionsForRoster(List<Wrestler> roster) {

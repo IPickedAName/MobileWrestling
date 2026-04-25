@@ -1,6 +1,6 @@
 import '../models/wrestler.dart';
 
-class DraftAI {
+class DraftPicker {
   double _value(Wrestler w) {
     return (w.inRing * 0.5) + (w.popularity * 0.3) + (w.charisma * 0.2);
   }
