@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../firestore_service.dart';
+import '../viewmodels/simVM.dart';
 import 'appDrawer.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -14,6 +16,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
   bool isLoading = true;
   String errorMessage = '';
+  bool usingLocalStats = false;
   Map<String, dynamic> currentStats = {};
   List<Map<String, dynamic>> weeklyStats = [];
 
@@ -28,17 +31,61 @@ class _StatsScreenState extends State<StatsScreen> {
       final stats = await _firestoreService.getCurrentStats();
       final weeks = await _firestoreService.getWeeklyStats();
 
+      if (!mounted) return;
+
+      if (stats == null && weeks.isEmpty) {
+        _loadLocalStats();
+        return;
+      }
+
       setState(() {
         currentStats = stats ?? {};
         weeklyStats = weeks;
         isLoading = false;
+        usingLocalStats = false;
       });
     } catch (e) {
-      setState(() {
-        errorMessage = 'Failed to load stats';
-        isLoading = false;
-      });
+      if (!mounted) return;
+      _loadLocalStats();
     }
+  }
+
+  void _loadLocalStats() {
+    final sim = context.read<SimViewModel>();
+    final wins = sim.history.where((week) => week.playerPoints >= week.aiPoints).length;
+    final losses = sim.history.length - wins;
+    final bestRating = sim.history.isEmpty
+        ? 0.0
+        : sim.history
+            .map((week) => week.avgRating)
+            .reduce((a, b) => a > b ? a : b);
+    final averageRating = sim.history.isEmpty
+        ? 0.0
+        : sim.history.map((week) => week.avgRating).reduce((a, b) => a + b) /
+            sim.history.length;
+
+    setState(() {
+      currentStats = {
+        'totalPoints': sim.playerTotalPoints,
+        'wins': wins,
+        'losses': losses,
+        'weeksPlayed': sim.history.length,
+        'bestRating': bestRating,
+        'averageRating': averageRating,
+      };
+      weeklyStats = sim.history
+          .map((week) => {
+                'weekNumber': week.week,
+                'playerPoints': week.playerPoints,
+                'aiPoints': week.aiPoints,
+                'avgRating': week.avgRating,
+                'result': week.playerPoints >= week.aiPoints ? 'W' : 'L',
+              })
+          .toList();
+      usingLocalStats = true;
+      errorMessage = '';
+      isLoading = false;
+    });
   }
 
   @override
@@ -129,6 +176,13 @@ class _StatsScreenState extends State<StatsScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            if (usingLocalStats) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Showing local session stats. Firebase sync is unavailable.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
             const SizedBox(height: 12),
             if (weeklyStats.isEmpty)
               Container(

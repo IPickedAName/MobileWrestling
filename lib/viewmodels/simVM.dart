@@ -8,6 +8,13 @@ class PromoBooking {
   const PromoBooking({required this.wrestler});
 }
 
+class RestBooking {
+  final Wrestler wrestler;
+  final int recoveryAmount;
+
+  const RestBooking({required this.wrestler, this.recoveryAmount = 20});
+}
+
 class MatchBooking {
   final Wrestler w1;
   final Wrestler w2;
@@ -67,12 +74,16 @@ class WeekSummary {
   final int playerPoints;
   final int aiPoints;
   final double avgRating;
+  final int matchRevenue;
+  final int cardCost;
 
   const WeekSummary({
     required this.week,
     required this.playerPoints,
     required this.aiPoints,
     required this.avgRating,
+    this.matchRevenue = 0,
+    this.cardCost = 0,
   });
 }
 
@@ -92,16 +103,27 @@ class SimViewModel extends ChangeNotifier {
   List<WeekSummary> history = [];
   List<MatchBooking?> card = [null, null, null, null];
   List<PromoBooking?> promos = [null, null];
+  List<RestBooking?> rests = [null, null];
   List<MatchResult> weekResults = [];
   List<MatchResult> aiWeekResults = [];
 
   bool weekSimulated = false;
   bool seasonOver = false;
   bool seasonStarted = false;
+  bool arcadeMode = false;
+  int Function(String matchType) _matchCostResolver = (_) => 0;
 
-  void initSeason(List<Wrestler> pRoster, List<Wrestler> aRoster, {int weeks = 12}) {
+  void initSeason(
+    List<Wrestler> pRoster,
+    List<Wrestler> aRoster, {
+    int weeks = 12,
+    bool arcadeMode = false,
+    int Function(String matchType)? matchCostResolver,
+  }) {
     playerRoster = List.from(pRoster);
     aiRoster = List.from(aRoster);
+    this.arcadeMode = arcadeMode;
+    _matchCostResolver = matchCostResolver ?? (_) => 0;
     totalWeeks = weeks;
     currentWeek = 1;
     playerTotalPoints = 0;
@@ -109,6 +131,7 @@ class SimViewModel extends ChangeNotifier {
     history = [];
     card = [null, null, null, null];
     promos = [null, null];
+    rests = [null, null];
     weekResults = [];
     aiWeekResults = [];
     weekSimulated = false;
@@ -119,6 +142,14 @@ class SimViewModel extends ChangeNotifier {
 
   bool get cardFull => card.every((m) => m != null);
   int get slotsBooked => card.where((m) => m != null).length;
+
+  void syncPlayerRoster(List<Wrestler> roster) {
+    playerRoster = List.from(roster);
+    card = [null, null, null, null];
+    promos = [null, null];
+    rests = [null, null];
+    notifyListeners();
+  }
 
   Set<String> get _bookedNames {
     final names = <String>{};
@@ -132,6 +163,9 @@ class SimViewModel extends ChangeNotifier {
     }
     for (final p in promos) {
       if (p != null) names.add(p.wrestler.name);
+    }
+    for (final r in rests) {
+      if (r != null) names.add(r.wrestler.name);
     }
     return names;
   }
@@ -174,13 +208,32 @@ class SimViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setRestSlot(int index, Wrestler wrestler, {int? recoveryAmount}) {
+    rests[index] = RestBooking(
+      wrestler: wrestler,
+      recoveryAmount: recoveryAmount ?? (arcadeMode ? 30 : 20),
+    );
+    notifyListeners();
+  }
+
+  void clearRestSlot(int index) {
+    rests[index] = null;
+    notifyListeners();
+  }
+
   void autoBookCard() {
     if (!seasonStarted || weekSimulated) return;
 
     card = [null, null, null, null];
     promos = [null, null];
+    rests = [null, null];
 
-    final available = List<Wrestler>.from(playerRoster.where((w) => w.canBeBooked));
+    _ensureAutoBookAvailability();
+
+    final bookable = List<Wrestler>.from(playerRoster.where((w) => w.canBeBooked));
+    final available = arcadeMode && bookable.length < 8
+      ? List<Wrestler>.from(playerRoster)
+      : bookable;
     if (available.length < 8) {
       notifyListeners();
       return;
@@ -227,7 +280,17 @@ class SimViewModel extends ChangeNotifier {
       }
     }
 
-    // Auto-book leaves unused wrestlers benched so smaller rosters can recover.
+    final restCandidates = playerRoster
+        .where((w) => !usedNames.contains(w.name))
+        .toList()
+      ..sort((a, b) => a.currentStamina.compareTo(b.currentStamina));
+
+    for (int i = 0; i < rests.length && i < restCandidates.length; i++) {
+      rests[i] = RestBooking(
+        wrestler: restCandidates[i],
+        recoveryAmount: arcadeMode ? 30 : 20,
+      );
+    }
 
     notifyListeners();
   }
@@ -369,11 +432,25 @@ class SimViewModel extends ChangeNotifier {
       playerPts += 15;
     }
 
+    // Ticket revenue per match based on position and star rating
+    int matchRevenue = 0;
+    int cardCost = 0;
+    for (int i = 0; i < weekResults.length; i++) {
+      final r = weekResults[i];
+      final base = i == 3 ? 120 : (i == 0 ? 40 : 70); // Main Event / Opener / Midcard
+      final ratingBonus = ((r.starRating - 3.0).clamp(0.0, 2.0) * 20).round();
+      final champBonus = r.matchType == 'Championship' ? 30 : 0;
+      final tagBonus = r.isTagTeam ? 15 : 0;
+      matchRevenue += base + ratingBonus + champBonus + tagBonus;
+      cardCost += _matchCostResolver(r.matchType);
+    }
+
     // Process promo segments
     for (final promo in promos) {
       if (promo != null) {
         final w = promo.wrestler;
-        w.currentStamina = min(w.stamina, w.currentStamina + w.promoSkill * 4);
+        final recovery = (w.promoSkill * (arcadeMode ? 5 : 4)).round();
+        w.currentStamina = min(w.stamina, w.currentStamina + recovery);
         w.popularity = (w.popularity + w.promoSkill).clamp(1, 100);
       }
     }
@@ -387,6 +464,8 @@ class SimViewModel extends ChangeNotifier {
       playerPoints: playerPts,
       aiPoints: aiPts,
       avgRating: avgRating,
+      matchRevenue: matchRevenue,
+      cardCost: cardCost,
     ));
 
     weekSimulated = true;
@@ -476,8 +555,21 @@ class SimViewModel extends ChangeNotifier {
         .where((p) => p != null)
         .map((p) => p!.wrestler.name)
         .toSet();
+    final restBookings = rests.where((r) => r != null).map((r) => r!).toList();
+    final restNames = restBookings.map((r) => r.wrestler.name).toSet();
+
+    for (final rest in restBookings) {
+      rest.wrestler.currentStamina = min(
+        rest.wrestler.stamina,
+        rest.wrestler.currentStamina + rest.recoveryAmount,
+      );
+      rest.wrestler.matchesThisWeek = 0;
+    }
 
     for (final w in playerRoster) {
+      if (restNames.contains(w.name)) {
+        continue;
+      }
       if (!matchBookedNames.contains(w.name) && !promoNames.contains(w.name)) {
         _engine.recoverStamina(w, benchedThisWeek: true);
       }
@@ -485,13 +577,14 @@ class SimViewModel extends ChangeNotifier {
     }
 
     for (final w in aiRoster) {
-      w.currentStamina = min(w.stamina, w.currentStamina + 5);
+      w.currentStamina = min(w.stamina, w.currentStamina + (arcadeMode ? 10 : 5));
       w.matchesThisWeek = 0;
     }
 
     currentWeek++;
     card = [null, null, null, null];
     promos = [null, null];
+    rests = [null, null];
     weekResults = [];
     aiWeekResults = [];
     weekSimulated = false;
@@ -532,9 +625,10 @@ class SimViewModel extends ChangeNotifier {
   }
 
   void _applyMatchOutcome(Wrestler wrestler, String position, String matchType, {required bool won}) {
+    final rawDrain = _engine.staminaDrain(position, matchType, won);
+    final adjustedDrain = arcadeMode ? (rawDrain * 0.75).round() : rawDrain;
     wrestler.currentStamina =
-        (wrestler.currentStamina - _engine.staminaDrain(position, matchType, won))
-            .clamp(0, wrestler.stamina);
+        (wrestler.currentStamina - adjustedDrain).clamp(0, wrestler.stamina);
     wrestler.matchesThisWeek++;
   }
 
@@ -544,6 +638,23 @@ class SimViewModel extends ChangeNotifier {
 
   int _autoBookScore(Wrestler wrestler) {
     return _bookingScore(wrestler) + (wrestler.currentStamina * 3);
+  }
+
+  void _ensureAutoBookAvailability() {
+    int safety = 0;
+    final maxLoops = arcadeMode ? 5 : 3;
+    while (playerRoster.where((w) => w.canBeBooked).length < 8 && safety < maxLoops) {
+      for (final wrestler in playerRoster.where((w) => !w.canBeBooked)) {
+        _engine.recoverStamina(wrestler, benchedThisWeek: true);
+      }
+      safety++;
+    }
+
+    if (arcadeMode && playerRoster.where((w) => w.canBeBooked).length < 8) {
+      for (final wrestler in playerRoster.where((w) => !w.canBeBooked)) {
+        wrestler.currentStamina = max(wrestler.currentStamina, 40);
+      }
+    }
   }
 
   void _recoverRosterForAutoPlay() {
@@ -557,6 +668,7 @@ class SimViewModel extends ChangeNotifier {
     }
     card = [null, null, null, null];
     promos = [null, null];
+    rests = [null, null];
     weekResults = [];
     aiWeekResults = [];
     weekSimulated = false;

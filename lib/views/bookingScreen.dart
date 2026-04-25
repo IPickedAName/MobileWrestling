@@ -11,6 +11,20 @@ String _nameWithChampionTag(Wrestler wrestler) {
   return wrestler.name;
 }
 
+Color _staminaColor(int stamina) {
+  if (stamina >= 75) return const Color(0xFF4ade80);
+  if (stamina >= 50) return const Color(0xFFfacc15);
+  if (stamina >= 25) return const Color(0xFFfb923c);
+  return const Color(0xFFef4444);
+}
+
+String _staminaLabel(int stamina) {
+  if (stamina >= 75) return 'Fresh';
+  if (stamina >= 50) return 'Manage';
+  if (stamina >= 25) return 'Risk';
+  return 'Exhausted';
+}
+
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
 
@@ -33,13 +47,17 @@ class _BookingScreenState extends State<BookingScreen> {
         await showDialog<void>(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => _ChampionSelectionDialog(draft: draft),
+          builder: (ctx) => _ChampionSelectionDialog(draft: draft, sim: sim),
         );
         _showingChampionDialog = false;
       }
 
       if (!mounted || sim.seasonStarted || draft.needsChampionSelection) return;
-      sim.initSeason(draft.myRoster, draft.aiRoster);
+      sim.initSeason(
+        draft.myRoster,
+        draft.aiRoster,
+        arcadeMode: draft.isArcadeMode,
+      );
     });
   }
 
@@ -83,13 +101,37 @@ class _BookingScreenState extends State<BookingScreen> {
                 onSelected: (value) {
                   switch (value) {
                     case 'autoWeek':
+                      final historyBefore = sim.history.length;
                       sim.autoFinishWeek();
+                      if (sim.history.length > historyBefore) {
+                        final summary = sim.history.last;
+                        draft.applyWeeklyFinance(
+                          week: summary.week,
+                          playerPoints: summary.playerPoints,
+                          aiPoints: summary.aiPoints,
+                          avgRating: summary.avgRating,
+                          matchRevenue: summary.matchRevenue,
+                          cardCost: summary.cardCost,
+                        );
+                      }
                       if (sim.weekSimulated) {
                         Navigator.pushNamed(context, '/results');
                       }
                       break;
                     case 'skipSeason':
+                      final historyBefore = sim.history.length;
                       sim.autoPlayToSeasonEnd();
+                      for (int i = historyBefore; i < sim.history.length; i++) {
+                        final summary = sim.history[i];
+                        draft.applyWeeklyFinance(
+                          week: summary.week,
+                          playerPoints: summary.playerPoints,
+                          aiPoints: summary.aiPoints,
+                          avgRating: summary.avgRating,
+                          matchRevenue: summary.matchRevenue,
+                          cardCost: summary.cardCost,
+                        );
+                      }
                       break;
                   }
                 },
@@ -111,6 +153,45 @@ class _BookingScreenState extends State<BookingScreen> {
           body: Column(
             children: [
               _ScoreBar(playerPts: sim.playerTotalPoints, aiPts: sim.aiTotalPoints),
+              Container(
+                width: double.infinity,
+                color: const Color(0xFF161616),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Roster: ${sim.playerRoster.length} total  •  ${sim.availableWrestlers.length} available this week',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Cash: ${draft.seasonCashDisplay}',
+                      style: const TextStyle(
+                        color: Color(0xFF4ade80),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Mode: ${draft.gameModeLabel}',
+                      style: TextStyle(
+                        color: draft.isArcadeMode
+                            ? const Color(0xFFfacc15)
+                            : Colors.white60,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${sim.playerRoster.where((w) => w.currentStamina < 50).length} wrestlers below 50 stamina. Use promo or rest slots to recover.',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(16),
@@ -120,6 +201,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         index: i,
                         booking: sim.card[i],
                         position: SimViewModel.positions[i],
+                        cost: draft.matchCostFor(sim.card[i]?.matchType ?? ''),
                         onTap: () => _openSheet(context, sim, i),
                         onClear: () => sim.clearSlot(i),
                       ),
@@ -139,10 +221,25 @@ class _BookingScreenState extends State<BookingScreen> {
                       onTap: () => _openPromoSheet(context, sim, i),
                       onClear: () => sim.clearPromoSlot(i),
                     ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                    child: Text('REST SLOTS  —  RECOVERY',
+                        style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 10,
+                            letterSpacing: 1.4)),
+                  ),
+                  for (int i = 0; i < 2; i++)
+                    _RestSlotCard(
+                      index: i,
+                      booking: sim.rests[i],
+                      onTap: () => _openRestSheet(context, sim, i),
+                      onClear: () => sim.clearRestSlot(i),
+                    ),
                   ],
                 ),
               ),
-              _SimulateBar(sim: sim),
+              _SimulateBar(sim: sim, draft: draft),
             ],
           ),
         );
@@ -162,6 +259,22 @@ class _BookingScreenState extends State<BookingScreen> {
     ).then((_) {
       if (sim.promos[index] == null && existing != null) {
         sim.setPromoSlot(index, existing.wrestler);
+      }
+    });
+  }
+
+  void _openRestSheet(BuildContext context, SimViewModel sim, int index) {
+    final existing = sim.rests[index];
+    if (existing != null) sim.clearRestSlot(index);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _RestSheet(sim: sim, slotIndex: index, initial: existing?.wrestler),
+    ).then((_) {
+      if (sim.rests[index] == null && existing != null) {
+        sim.setRestSlot(index, existing.wrestler, recoveryAmount: existing.recoveryAmount);
       }
     });
   }
@@ -194,8 +307,9 @@ class _BookingScreenState extends State<BookingScreen> {
 
 class _ChampionSelectionDialog extends StatefulWidget {
   final DraftViewModel draft;
+  final SimViewModel sim;
 
-  const _ChampionSelectionDialog({required this.draft});
+  const _ChampionSelectionDialog({required this.draft, required this.sim});
 
   @override
   State<_ChampionSelectionDialog> createState() => _ChampionSelectionDialogState();
@@ -249,7 +363,7 @@ class _ChampionSelectionDialogState extends State<_ChampionSelectionDialog> {
                 style: TextStyle(color: Colors.white70, fontSize: 12)),
             const SizedBox(height: 6),
             DropdownButtonFormField<Wrestler>(
-              value: universalChampion,
+              initialValue: universalChampion,
               dropdownColor: const Color(0xFF2A2A2A),
               decoration: _champFieldDecoration(),
               items: roster
@@ -266,7 +380,7 @@ class _ChampionSelectionDialogState extends State<_ChampionSelectionDialog> {
                 style: TextStyle(color: Colors.white70, fontSize: 12)),
             const SizedBox(height: 6),
             DropdownButtonFormField<Wrestler>(
-              value: intercontinentalChampion,
+              initialValue: intercontinentalChampion,
               dropdownColor: const Color(0xFF2A2A2A),
               decoration: _champFieldDecoration(),
               items: roster
@@ -297,6 +411,12 @@ class _ChampionSelectionDialogState extends State<_ChampionSelectionDialog> {
                   widget.draft.assignChampions(
                     universalChampion: universalChampion!,
                     intercontinentalChampion: intercontinentalChampion!,
+                  );
+                  widget.sim.initSeason(
+                    widget.draft.myRoster,
+                    widget.draft.aiRoster,
+                    arcadeMode: widget.draft.isArcadeMode,
+                    matchCostResolver: widget.draft.matchCostFor,
                   );
                   Navigator.pop(context);
                 }
@@ -366,6 +486,7 @@ class _SlotCard extends StatelessWidget {
   final String position;
   final VoidCallback onTap;
   final VoidCallback onClear;
+  final int cost;
 
   const _SlotCard({
     required this.index,
@@ -373,6 +494,7 @@ class _SlotCard extends StatelessWidget {
     required this.position,
     required this.onTap,
     required this.onClear,
+    this.cost = 0,
   });
 
   Color get _posColor {
@@ -415,6 +537,19 @@ class _SlotCard extends StatelessWidget {
                           fontSize: 11,
                           letterSpacing: 1.5)),
                   const Spacer(),
+                  if (booking != null && cost > 0)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C2D12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '- ${DraftViewModel.toM(cost)}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                      ),
+                    ),
                   if (booking != null)
                     GestureDetector(
                       onTap: onClear,
@@ -543,7 +678,8 @@ class _Tag extends StatelessWidget {
 
 class _SimulateBar extends StatelessWidget {
   final SimViewModel sim;
-  const _SimulateBar({required this.sim});
+  final DraftViewModel draft;
+  const _SimulateBar({required this.sim, required this.draft});
 
   @override
   Widget build(BuildContext context) {
@@ -552,8 +688,20 @@ class _SimulateBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          Text('${sim.slotsBooked}/4 booked',
-              style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${sim.slotsBooked}/4 booked',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13)),
+              Builder(builder: (context) {
+                final totalCost = draft.cardTotalCost(sim.card);
+                return totalCost > 0
+                    ? Text('Card cost: -${DraftViewModel.toM(totalCost)}',
+                        style: const TextStyle(color: Color(0xFFfb923c), fontSize: 11))
+                    : const SizedBox.shrink();
+              }),
+            ],
+          ),
           const Spacer(),
           OutlinedButton(
             onPressed: sim.seasonStarted && !sim.weekSimulated
@@ -575,13 +723,25 @@ class _SimulateBar extends StatelessWidget {
 
         if (sim.history.isNotEmpty) {
           final summary = sim.history.last;
-
-          await FirestoreService().recordWeeklyStats(
-            weekNumber: sim.currentWeek,
+          draft.applyWeeklyFinance(
+            week: summary.week,
             playerPoints: summary.playerPoints,
             aiPoints: summary.aiPoints,
             avgRating: summary.avgRating,
+            matchRevenue: summary.matchRevenue,
+            cardCost: summary.cardCost,
           );
+
+          try {
+            await FirestoreService().recordWeeklyStats(
+              weekNumber: sim.currentWeek,
+              playerPoints: summary.playerPoints,
+              aiPoints: summary.aiPoints,
+              avgRating: summary.avgRating,
+            );
+          } catch (_) {
+            // Local simulation still works without Firebase sync.
+          }
         }
 
         if (context.mounted) {
@@ -993,8 +1153,8 @@ class _BookingSheetState extends State<_BookingSheet> {
                                     fontSize: 14)),
                             subtitle: Text(
                               '${w.wrestlerClass}  ·  Ring ${w.inRing}  ·  Pop ${w.popularity}  ·  STA ${w.currentStamina}/${w.stamina}',
-                              style:
-                                  const TextStyle(color: Colors.grey, fontSize: 11),
+                              style: TextStyle(
+                                  color: _staminaColor(w.currentStamina), fontSize: 11),
                             ),
                             trailing: isSelected
                                 ? _CircleBadge('${selectedIndex + 1}', const Color(0xFFCC0000))
@@ -1138,6 +1298,97 @@ class _PromoSlotCard extends StatelessWidget {
   }
 }
 
+class _RestSlotCard extends StatelessWidget {
+  final int index;
+  final RestBooking? booking;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  const _RestSlotCard({
+    required this.index,
+    this.booking,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.teal.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.teal.withValues(alpha: 0.10),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: Row(
+                children: [
+                  Text('REST SLOT ${index + 1}',
+                      style: const TextStyle(
+                          color: Colors.tealAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          letterSpacing: 1.5)),
+                  const Spacer(),
+                  const Text('OPTIONAL',
+                      style: TextStyle(color: Colors.grey, fontSize: 10)),
+                  if (booking != null) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: onClear,
+                      child: const Icon(Icons.close, color: Colors.grey, size: 16),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: booking == null
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.bedtime_outlined, color: Colors.grey, size: 18),
+                        SizedBox(width: 8),
+                        Text('Assign Rest (+20 STA)',
+                            style: TextStyle(color: Colors.grey, fontSize: 14)),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        const Icon(Icons.hotel, color: Colors.tealAccent, size: 16),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(booking!.wrestler.name,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15)),
+                        ),
+                        _Tag(
+                          '+${booking!.recoveryAmount} STA',
+                          color: Colors.teal.withValues(alpha: 0.3),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── PROMO SHEET ─────────────────────────────────────────────────────────────
 
 class _PromoSheet extends StatefulWidget {
@@ -1243,8 +1494,8 @@ class _PromoSheetState extends State<_PromoSheet> {
                                     fontSize: 14)),
                             subtitle: Text(
                               'Promo ${w.promoSkill}★  ·  STA ${w.currentStamina}/${w.stamina}  ·  Pop ${w.popularity}',
-                              style: const TextStyle(
-                                  color: Colors.grey, fontSize: 11),
+                              style: TextStyle(
+                                  color: _staminaColor(w.currentStamina), fontSize: 11),
                             ),
                             trailing: isSel
                                 ? const Icon(Icons.check_circle,
@@ -1276,6 +1527,151 @@ class _PromoSheetState extends State<_PromoSheet> {
                           borderRadius: BorderRadius.circular(8)),
                     ),
                     child: const Text('ASSIGN PROMO',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RestSheet extends StatefulWidget {
+  final SimViewModel sim;
+  final int slotIndex;
+  final Wrestler? initial;
+
+  const _RestSheet({required this.sim, required this.slotIndex, this.initial});
+
+  @override
+  State<_RestSheet> createState() => _RestSheetState();
+}
+
+class _RestSheetState extends State<_RestSheet> {
+  Wrestler? selected;
+
+  @override
+  void initState() {
+    super.initState();
+    selected = widget.initial;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final available = widget.sim.availableWrestlers.toList()
+      ..sort((a, b) => a.currentStamina.compareTo(b.currentStamina));
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[700],
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Text('REST SLOT',
+                        style: TextStyle(
+                            color: Colors.tealAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            letterSpacing: 1.5)),
+                    Spacer(),
+                    Text('Pick one wrestler',
+                        style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Rested wrestlers skip the show and recover a big chunk of stamina.',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ),
+              const Divider(color: Color(0xFF2A2A2A), height: 20),
+              Expanded(
+                child: available.isEmpty
+                    ? const Center(
+                        child: Text('No wrestlers available',
+                            style: TextStyle(color: Colors.grey)))
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: available.length,
+                        itemBuilder: (ctx, i) {
+                          final w = available[i];
+                          final isSel = w.name == selected?.name;
+                          return ListTile(
+                            onTap: () => setState(() => selected = isSel ? null : w),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                            tileColor: isSel
+                                ? Colors.teal.withValues(alpha: 0.12)
+                                : null,
+                            title: Text(w.name,
+                                style: TextStyle(
+                                    color: isSel ? Colors.white : Colors.grey[300],
+                                    fontWeight: isSel
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    fontSize: 14)),
+                            subtitle: Text(
+                              '${w.wrestlerClass}  ·  STA ${w.currentStamina}/${w.stamina}  ·  ${_staminaLabel(w.currentStamina)}',
+                              style: TextStyle(
+                                color: _staminaColor(w.currentStamina),
+                                fontSize: 11,
+                              ),
+                            ),
+                            trailing: isSel
+                                ? const Icon(Icons.check_circle, color: Colors.tealAccent)
+                                : const Text('+20 STA',
+                                    style: TextStyle(color: Colors.grey, fontSize: 10)),
+                          );
+                        },
+                      ),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    20, 8, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: selected != null
+                        ? () {
+                            widget.sim.setRestSlot(widget.slotIndex, selected!);
+                            Navigator.pop(context);
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          selected != null ? Colors.teal : Colors.grey[850],
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('ASSIGN REST',
                         style: TextStyle(
                             fontWeight: FontWeight.bold, letterSpacing: 1)),
                   ),
