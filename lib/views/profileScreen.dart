@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'appDrawer.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -7,6 +8,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF111111),
+      drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,

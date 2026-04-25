@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../auth_viewmodel.dart';
 import '../firestore_service.dart';
+import 'appDrawer.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -69,6 +70,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
+      drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,

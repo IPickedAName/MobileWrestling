@@ -89,6 +89,28 @@ class DraftViewModel extends ChangeNotifier {
     }
   }
 
+  void autoDraft() {
+    restartDraft();
+    final shuffled = List<Wrestler>.from(pool)..shuffle();
+
+    for (final w in shuffled) {
+      if (myRoster.length >= minRosterSize && aiRoster.length >= minRosterSize) break;
+      if (myRoster.length < minRosterSize && w.salary <= myBudget) {
+        myRoster.add(w);
+        pool.remove(w);
+        myBudget -= w.salary;
+      } else if (aiRoster.length < minRosterSize && w.salary <= aiBudget) {
+        aiRoster.add(w);
+        pool.remove(w);
+        aiBudget -= w.salary;
+      }
+    }
+
+    draftComplete = true;
+    lastPickMessage = 'Auto draft complete!';
+    notifyListeners();
+  }
+
   void restartDraft() {
     pool = List.from(_fullPool);
     myRoster = [];

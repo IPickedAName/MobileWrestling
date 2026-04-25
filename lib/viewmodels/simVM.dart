@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../models/wrestler.dart';
 import '../services/simEngine.dart';
 
+class PromoBooking {
+  final Wrestler wrestler;
+  const PromoBooking({required this.wrestler});
+}
+
 class MatchBooking {
   final Wrestler w1;
   final Wrestler w2;
@@ -68,7 +73,9 @@ class SimViewModel extends ChangeNotifier {
 
   List<WeekSummary> history = [];
   List<MatchBooking?> card = [null, null, null, null];
+  List<PromoBooking?> promos = [null, null];
   List<MatchResult> weekResults = [];
+  List<MatchResult> aiWeekResults = [];
 
   bool weekSimulated = false;
   bool seasonOver = false;
@@ -83,7 +90,9 @@ class SimViewModel extends ChangeNotifier {
     aiTotalPoints = 0;
     history = [];
     card = [null, null, null, null];
+    promos = [null, null];
     weekResults = [];
+    aiWeekResults = [];
     weekSimulated = false;
     seasonOver = false;
     seasonStarted = true;
@@ -101,6 +110,9 @@ class SimViewModel extends ChangeNotifier {
         names.add(m.w2.name);
       }
     }
+    for (final p in promos) {
+      if (p != null) names.add(p.wrestler.name);
+    }
     return names;
   }
 
@@ -114,6 +126,16 @@ class SimViewModel extends ChangeNotifier {
 
   void clearSlot(int index) {
     card[index] = null;
+    notifyListeners();
+  }
+
+  void setPromoSlot(int index, Wrestler wrestler) {
+    promos[index] = PromoBooking(wrestler: wrestler);
+    notifyListeners();
+  }
+
+  void clearPromoSlot(int index) {
+    promos[index] = null;
     notifyListeners();
   }
 
@@ -179,6 +201,15 @@ class SimViewModel extends ChangeNotifier {
       playerPts += 15;
     }
 
+    // Process promo segments
+    for (final promo in promos) {
+      if (promo != null) {
+        final w = promo.wrestler;
+        w.currentStamina = min(w.stamina, w.currentStamina + w.promoSkill * 4);
+        w.popularity = (w.popularity + w.promoSkill).clamp(1, 100);
+      }
+    }
+
     final aiPts = _simulateAI();
     playerTotalPoints += playerPts;
     aiTotalPoints += aiPts;
@@ -205,6 +236,7 @@ class SimViewModel extends ChangeNotifier {
   }
 
   int _simulateAI() {
+    aiWeekResults = [];
     final available = aiRoster.where((w) => w.canBeBooked).toList()
       ..sort((a, b) => (b.popularity + b.inRing).compareTo(a.popularity + a.inRing));
 
@@ -214,7 +246,7 @@ class SimViewModel extends ChangeNotifier {
     double totalRating = 0;
 
     for (int i = 0; i < 4; i++) {
-      final idx = (3 - i) * 2; // best wrestlers go to main event
+      final idx = (3 - i) * 2;
       final w1 = available[idx];
       final w2 = available[idx + 1];
       final type = i == 3 ? 'Championship' : 'Singles';
@@ -223,6 +255,7 @@ class SimViewModel extends ChangeNotifier {
       final rating = _engine.simulateRating(w1: w1, w2: w2, matchType: type);
       final winner = _engine.determineWinner(w1, w2);
       final won1 = winner.name == w1.name;
+      final loser = won1 ? w2 : w1;
 
       w1.addFeudalEncounter(w2.name);
       w2.addFeudalEncounter(w1.name);
@@ -236,8 +269,19 @@ class SimViewModel extends ChangeNotifier {
       totalRating += rating;
       aiPts += pts;
 
+      aiWeekResults.add(MatchResult(
+        position: pos,
+        w1: w1,
+        w2: w2,
+        winner: winner,
+        starRating: rating,
+        points: pts,
+        correctPrediction: false,
+        wasUpset: winner.popularity < loser.popularity,
+      ));
+
       _engine.updateAfterMatch(wrestler: winner, won: true, starRating: rating, wasMainEvent: i == 3);
-      _engine.updateAfterMatch(wrestler: won1 ? w2 : w1, won: false, starRating: rating, wasMainEvent: i == 3);
+      _engine.updateAfterMatch(wrestler: loser, won: false, starRating: rating, wasMainEvent: i == 3);
     }
 
     aiPts += 10;
@@ -252,14 +296,22 @@ class SimViewModel extends ChangeNotifier {
   }
 
   void advanceWeek() {
-    final bookedNames = weekResults.fold(<String>{}, (set, r) {
+    final matchBookedNames = weekResults.fold(<String>{}, (set, r) {
       set.add(r.w1.name);
       set.add(r.w2.name);
       return set;
     });
 
+    // Promo wrestlers already got recovery in simulateWeek — don't double-recover
+    final promoNames = promos
+        .where((p) => p != null)
+        .map((p) => p!.wrestler.name)
+        .toSet();
+
     for (final w in playerRoster) {
-      if (!bookedNames.contains(w.name)) _engine.recoverStamina(w, benchedThisWeek: true);
+      if (!matchBookedNames.contains(w.name) && !promoNames.contains(w.name)) {
+        _engine.recoverStamina(w, benchedThisWeek: true);
+      }
       w.matchesThisWeek = 0;
     }
 
@@ -270,7 +322,9 @@ class SimViewModel extends ChangeNotifier {
 
     currentWeek++;
     card = [null, null, null, null];
+    promos = [null, null];
     weekResults = [];
+    aiWeekResults = [];
     weekSimulated = false;
     if (currentWeek > totalWeeks) seasonOver = true;
 

@@ -4,6 +4,16 @@ import '../models/wrestler.dart';
 class SimulationEngine {
   final Random _rng = Random();
 
+  // ROLE BONUS — Face vs Heel gets crowd reaction bonus; same-role gets penalty
+  double _roleBonus(String role1, String role2) {
+    if ((role1 == 'face' && role2 == 'heel') ||
+        (role1 == 'heel' && role2 == 'face')) {
+      return 0.15;
+    }
+    if (role1 == role2 && role1.isNotEmpty) return -0.10;
+    return 0.0;
+  }
+
   // CLASS MATCHUP BONUS
   double _classBonus(String w1Class, String w2Class) {
     const counters = {
@@ -58,28 +68,47 @@ class SimulationEngine {
   }
 
   // CORE RATING SIMULATION
+  // Quality gates the ceiling — two 60s can't spike to 5★ on a lucky roll.
+  // Bonuses scale with quality so low-rated wrestlers benefit proportionally less.
   double simulateRating({
     required Wrestler w1,
     required Wrestler w2,
     required String matchType,
   }) {
-    int encounters = w1.feudEncountersWith(w2.name);
+    // Composite quality per wrestler (0–100 scale)
+    double q1 = w1.effectiveInRing * 0.5 + w1.charisma * 0.3 + w1.popularity * 0.2;
+    double q2 = w2.effectiveInRing * 0.5 + w2.charisma * 0.3 + w2.popularity * 0.2;
+    double quality = (q1 + q2) / 2;
 
-    double w1Score = (w1.effectiveInRing * 0.5 + w1.charisma * 0.3 + w1.popularity * 0.2);
-    double w2Score = (w2.effectiveInRing * 0.5 + w2.charisma * 0.3 + w2.popularity * 0.2);
-    double workerScore = ((w1Score + w2Score) / 2) / 20;
+    // Hard ceiling based on talent — 60→3.0★, 80→4.0★, 95→4.75★, 100→5.0★
+    double qualityCeiling = (quality * 0.05).clamp(0.0, 5.0);
 
-    double synergy  = _classBonus(w1.wrestlerClass, w2.wrestlerClass);
-    double typeBonus = _typeBonus(matchType);
-    double feud     = _feudBonus(encounters);
-    double momentum = (w1.momentum + w2.momentum) * 0.05;
-    double noise    = ((_rng.nextDouble() + _rng.nextDouble()) / 2 - 0.5) * 0.75;
+    // Base sits below ceiling; bonuses bridge the gap toward the ceiling
+    double base = quality / 25.0;
 
-    double raw      = workerScore + synergy + typeBonus + feud + momentum + noise;
-    double floor    = _typeFloor(matchType);
-    double clamped  = raw.clamp(floor, 5.0);
+    // Raw bonuses
+    double rawBonuses =
+        _classBonus(w1.wrestlerClass, w2.wrestlerClass) +
+        _typeBonus(matchType) +
+        _feudBonus(w1.feudEncountersWith(w2.name)) +
+        _roleBonus(w1.role, w2.role) +
+        (w1.momentum + w2.momentum) * 0.05 +
+        ((w1.morale + w2.morale) / 2 - 50) / 500;
 
-    return (clamped * 4).round() / 4;
+    // Scale bonuses by quality — worse workers extract less value from ideal conditions
+    double scaledBonuses = rawBonuses * (quality / 100.0);
+
+    // Center of the rating distribution, capped by talent ceiling
+    double center = min(qualityCeiling, base + scaledBonuses);
+
+    // Noise budget: worse workers are swingier (less predictable)
+    double noiseBudget = 0.25 + (1.0 - quality / 100.0) * 0.5;
+    double noise = (_rng.nextDouble() - 0.5) * noiseBudget;
+
+    double floor = _typeFloor(matchType);
+    double raw = (center + noise).clamp(floor, qualityCeiling);
+
+    return (raw * 4).round() / 4;
   }
 
   // WINNER DETERMINATION
@@ -87,7 +116,8 @@ class SimulationEngine {
     double total = (w1.popularity + w2.popularity).toDouble();
     double w1Chance = w1.popularity / total;
     double momentumShift = (w1.momentum - w2.momentum) * 0.02;
-    double adjusted = (w1Chance + momentumShift).clamp(0.15, 0.85);
+    double moraleShift = (w1.morale - w2.morale) * 0.001;
+    double adjusted = (w1Chance + momentumShift + moraleShift).clamp(0.15, 0.85);
     return _rng.nextDouble() < adjusted ? w1 : w2;
   }
 
@@ -146,6 +176,14 @@ class SimulationEngine {
         : max(-5, wrestler.momentum - 1);
 
     wrestler.popularity = (wrestler.popularity + delta).clamp(1, 100);
+
+    // Morale: wins build confidence, losses erode it — main event stakes hurt more
+    if (won) {
+      wrestler.morale = min(100, wrestler.morale + (starRating >= 4.0 ? 5 : 3));
+    } else {
+      wrestler.morale = max(0, wrestler.morale - (wasMainEvent ? 5 : 3));
+    }
+
     wrestler.matchesThisWeek = 0;
   }
 
@@ -156,7 +194,10 @@ class SimulationEngine {
     } else if (promoOnly) {
       wrestler.currentStamina = min(wrestler.stamina, wrestler.currentStamina + 8);
     }
+    // Popularity and morale drift toward average when out of action
     if (wrestler.popularity > 50) wrestler.popularity -= 1;
     if (wrestler.popularity < 50) wrestler.popularity += 1;
+    if (wrestler.morale > 50) wrestler.morale -= 1;
+    if (wrestler.morale < 50) wrestler.morale += 1;
   }
 }

@@ -89,13 +89,45 @@ class _DraftScreenState extends State<DraftScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Snake Draft',
-            style: TextStyle(color: Colors.white, fontSize: 20,
-              fontWeight: FontWeight.w600)),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false),
+                child: const Icon(Icons.home_outlined, color: Colors.white54, size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Text('Snake Draft',
+                style: TextStyle(color: Colors.white, fontSize: 20,
+                  fontWeight: FontWeight.w600)),
+            ],
+          ),
           Row(children: [
             Text('Pick ${vm.pickNumber}',
               style: const TextStyle(color: Colors.grey, fontSize: 13)),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
+            if (!vm.draftComplete)
+              GestureDetector(
+                onTap: () {
+                  _lastShownMessage = '';
+                  vm.autoDraft();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1a3a1a),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF4ade80), width: 0.5)),
+                  child: const Text('⚡ Auto',
+                    style: TextStyle(color: Color(0xFF4ade80), fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+                ),
+              ),
+            const SizedBox(width: 8),
             GestureDetector(
               onTap: () {
                 _lastShownMessage = '';
@@ -492,9 +524,7 @@ class _DraftScreenState extends State<DraftScreen> {
             style: const TextStyle(color: Colors.grey, fontSize: 13)),
           const SizedBox(height: 24),
           GestureDetector(
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Booking screen coming next!'))),
+            onTap: () => Navigator.pushReplacementNamed(context, '/booking'),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),

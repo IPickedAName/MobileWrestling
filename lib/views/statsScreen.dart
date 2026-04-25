@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/wrestler.dart';
 import '../services/wrestlerService.dart';
+import 'appDrawer.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -73,6 +74,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF111111),
+      drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
