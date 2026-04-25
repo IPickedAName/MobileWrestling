@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/wrestler.dart';
 import '../viewmodels/simVM.dart';
 import 'appDrawer.dart';
+import '../widgets/champion_badge.dart';
+
+String _resultName(Wrestler wrestler) {
+  return wrestler.name;
+}
 
 class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
@@ -214,6 +220,28 @@ class _ResultCard extends StatelessWidget {
   final MatchResult result;
   const _ResultCard({required this.result});
 
+  Widget _nameWithBadge(Wrestler wrestler, {TextAlign align = TextAlign.left}) {
+    return Column(
+      crossAxisAlignment:
+          align == TextAlign.right ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          _resultName(wrestler),
+          textAlign: align,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
+        if (wrestler.isChampion) ...[
+          const SizedBox(height: 2),
+          ChampionBadge(label: wrestler.championshipTitle, compact: true),
+        ],
+      ],
+    );
+  }
+
   String _starStr(double r) {
     final full = r.floor();
     final half = (r - full) >= 0.25;
@@ -224,7 +252,6 @@ class _ResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final winnerIsW1 = result.winner.name == result.w1.name;
     final isGoodMatch = result.starRating >= 4.0;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
@@ -253,27 +280,52 @@ class _ResultCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(children: [
             Expanded(
-              child: Text(result.w1.name,
-                  style: TextStyle(
-                      color: winnerIsW1 ? Colors.white : Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15)),
+              child: result.isTagTeam
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _nameWithBadge(result.w1),
+                        const SizedBox(height: 4),
+                        _nameWithBadge(result.w2),
+                      ],
+                    )
+                  : Opacity(
+                      opacity: winnerIsW1 ? 1 : 0.6,
+                      child: _nameWithBadge(result.w1),
+                    ),
             ),
             const Text(' VS ', style: TextStyle(color: Colors.grey, fontSize: 12)),
             Expanded(
-              child: Text(result.w2.name,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                      color: !winnerIsW1 ? Colors.white : Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15)),
+              child: result.isTagTeam
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _nameWithBadge(result.w3!, align: TextAlign.right),
+                        const SizedBox(height: 4),
+                        _nameWithBadge(result.w4!, align: TextAlign.right),
+                      ],
+                    )
+                  : Opacity(
+                      opacity: !winnerIsW1 ? 1 : 0.6,
+                      child: _nameWithBadge(result.w2, align: TextAlign.right),
+                    ),
             ),
           ]),
           const SizedBox(height: 8),
           Row(children: [
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(result.matchType,
+                  style: const TextStyle(color: Colors.white70, fontSize: 10)),
+            ),
             const Icon(Icons.emoji_events, color: Colors.amber, size: 15),
             const SizedBox(width: 4),
-            Text('${result.winner.name} wins',
+            Text('${_resultName(result.winner)} wins',
                 style: const TextStyle(color: Colors.amber, fontSize: 13)),
             const Spacer(),
             Text(_starStr(result.starRating),

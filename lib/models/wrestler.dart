@@ -15,6 +15,7 @@ class Wrestler {
   int momentum;
   int matchesThisWeek;
   Map<String, int> feudHistory;
+  String? championshipTitle;
 
   Wrestler({
     required this.name,
@@ -33,6 +34,7 @@ class Wrestler {
     this.momentum = 0,
     this.matchesThisWeek = 0,
     Map<String, int>? feudHistory,
+    this.championshipTitle,
   }) : feudHistory = feudHistory ?? {};
 
   factory Wrestler.fromJson(Map<String, dynamic> json) {
@@ -53,6 +55,8 @@ class Wrestler {
       momentum:       json['momentum'] ?? 0,
     );
   }
+
+  bool get isChampion => championshipTitle != null;
 
   // effective inRing accounting for stamina drain
   int get effectiveInRing {

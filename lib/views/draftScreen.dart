@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/draft_VM.dart';
 import '../models/wrestler.dart';
+import '../widgets/champion_badge.dart';
 
 class DraftScreen extends StatefulWidget {
   const DraftScreen({super.key});
@@ -122,7 +123,7 @@ class _DraftScreenState extends State<DraftScreen> {
                     color: const Color(0xFF1a3a1a),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFF4ade80), width: 0.5)),
-                  child: const Text('⚡ Auto',
+                  child: const Text('⚡ Auto Fill',
                     style: TextStyle(color: Color(0xFF4ade80), fontSize: 12,
                       fontWeight: FontWeight.w600)),
                 ),
@@ -328,6 +329,10 @@ class _DraftScreenState extends State<DraftScreen> {
                 style: TextStyle(
                   color: affordable ? Colors.white : Colors.grey,
                   fontSize: 13, fontWeight: FontWeight.w500)),
+              if (w.isChampion) ...[
+                const SizedBox(height: 3),
+                ChampionBadge(label: w.championshipTitle),
+              ],
               const SizedBox(height: 2),
               Row(children: [
                 _pill(w.promotion, w.promotion == 'WWE'
@@ -500,6 +505,8 @@ class _DraftScreenState extends State<DraftScreen> {
         children: [
           Text(w.name.split(' ').first,
             style: TextStyle(color: nameColor, fontSize: 11)),
+          if (w.isChampion)
+            const ChampionBadge(compact: true),
           Text(DraftViewModel.toM(w.salary),
             style: TextStyle(color: salaryColor, fontSize: 9)),
         ],

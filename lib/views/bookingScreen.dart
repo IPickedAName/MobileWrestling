@@ -4,6 +4,11 @@ import '../models/wrestler.dart';
 import '../viewmodels/simVM.dart';
 import '../viewmodels/draft_VM.dart';
 import 'appDrawer.dart';
+import '../widgets/champion_badge.dart';
+
+String _nameWithChampionTag(Wrestler wrestler) {
+  return wrestler.name;
+}
 
 class BookingScreen extends StatelessWidget {
   const BookingScreen({super.key});
@@ -111,7 +116,15 @@ class BookingScreen extends StatelessWidget {
     ).then((_) {
       // Restore old booking if user dismissed without confirming
       if (sim.card[index] == null && existing != null) {
-        sim.setSlot(index, existing.w1, existing.w2, existing.matchType, existing.predictedWinner);
+        sim.setSlot(
+          index,
+          existing.w1,
+          existing.w2,
+          existing.matchType,
+          existing.predictedWinner,
+          w3: existing.w3,
+          w4: existing.w4,
+        );
       }
     });
   }
@@ -245,6 +258,28 @@ class _FilledSlot extends StatelessWidget {
   final MatchBooking booking;
   const _FilledSlot({required this.booking});
 
+  Widget _nameCell(Wrestler wrestler, {TextAlign align = TextAlign.left}) {
+    return Column(
+      crossAxisAlignment:
+          align == TextAlign.right ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          _nameWithChampionTag(wrestler),
+          textAlign: align,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
+        if (wrestler.isChampion) ...[
+          const SizedBox(height: 2),
+          ChampionBadge(label: wrestler.championshipTitle, compact: true),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -252,19 +287,32 @@ class _FilledSlot extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(booking.w1.name,
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              child: booking.isTagTeam
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _nameCell(booking.w1),
+                        const SizedBox(height: 4),
+                        _nameCell(booking.w2),
+                      ],
+                    )
+                  : _nameCell(booking.w1),
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Text('VS', style: TextStyle(color: Colors.grey, fontSize: 11)),
             ),
             Expanded(
-              child: Text(booking.w2.name,
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              child: booking.isTagTeam
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _nameCell(booking.w3!, align: TextAlign.right),
+                        const SizedBox(height: 4),
+                        _nameCell(booking.w4!, align: TextAlign.right),
+                      ],
+                    )
+                  : _nameCell(booking.w2, align: TextAlign.right),
             ),
           ],
         ),
@@ -273,7 +321,7 @@ class _FilledSlot extends StatelessWidget {
           children: [
             _Tag(booking.matchType),
             const SizedBox(width: 6),
-            _Tag('Pick: ${booking.predictedWinner.name}',
+            _Tag('Pick: ${_nameWithChampionTag(booking.predictedWinner)}',
                 color: const Color(0xFF6B0000)),
           ],
         ),
@@ -425,6 +473,8 @@ class _BookingSheet extends StatefulWidget {
 class _BookingSheetState extends State<_BookingSheet> {
   Wrestler? w1;
   Wrestler? w2;
+  Wrestler? w3;
+  Wrestler? w4;
   String matchType = 'Singles';
   Wrestler? predicted;
 
@@ -434,32 +484,85 @@ class _BookingSheetState extends State<_BookingSheet> {
     if (widget.initial != null) {
       w1 = widget.initial!.w1;
       w2 = widget.initial!.w2;
+      w3 = widget.initial!.w3;
+      w4 = widget.initial!.w4;
       matchType = widget.initial!.matchType;
       predicted = widget.initial!.predictedWinner;
     }
   }
 
   List<Wrestler> get _available => widget.sim.availableWrestlers;
+  bool get _isTagTeam => matchType == 'Tag Team';
+  int get _requiredCount => _isTagTeam ? 4 : 2;
 
-  bool get _canConfirm => w1 != null && w2 != null && predicted != null;
+  List<Wrestler> get _selected {
+    final list = <Wrestler>[];
+    if (w1 != null) list.add(w1!);
+    if (w2 != null) list.add(w2!);
+    if (w3 != null) list.add(w3!);
+    if (w4 != null) list.add(w4!);
+    return list;
+  }
+
+  bool get _canConfirm {
+    if (_selected.length != _requiredCount || predicted == null) return false;
+    if (_isTagTeam) {
+      return predicted!.name == w1?.name || predicted!.name == w3?.name;
+    }
+    return predicted!.name == w1?.name || predicted!.name == w2?.name;
+  }
+
+  void _setSelectionFromList(List<Wrestler> picks) {
+    w1 = picks.isNotEmpty ? picks[0] : null;
+    w2 = picks.length > 1 ? picks[1] : null;
+    w3 = picks.length > 2 ? picks[2] : null;
+    w4 = picks.length > 3 ? picks[3] : null;
+  }
+
+  void _autoPickPrediction() {
+    if (_isTagTeam) {
+      if (w1 != null && w3 != null) {
+        predicted = w1!.popularity >= w3!.popularity ? w1 : w3;
+      } else {
+        predicted = null;
+      }
+      return;
+    }
+
+    if (w1 != null && w2 != null) {
+      predicted = w1!.popularity >= w2!.popularity ? w1 : w2;
+    } else {
+      predicted = null;
+    }
+  }
+
+  void _onMatchTypeChanged(String nextType) {
+    if (nextType == matchType) return;
+    setState(() {
+      matchType = nextType;
+      if (!_isTagTeam) {
+        w3 = null;
+        w4 = null;
+        if (predicted != null && predicted!.name != w1?.name && predicted!.name != w2?.name) {
+          predicted = null;
+        }
+      }
+      _autoPickPrediction();
+    });
+  }
 
   void _selectWrestler(Wrestler w) {
     setState(() {
-      if (w1?.name == w.name) {
-        // deselect w1; shift w2 up if present
-        w1 = w2;
-        w2 = null;
-        predicted = null;
-      } else if (w2?.name == w.name) {
-        w2 = null;
-        predicted = null;
-      } else if (w1 == null) {
-        w1 = w;
-      } else {
-        w2 = w;
-        // Auto-predict the favourite so confirm is immediately available
-        predicted = w.popularity >= w1!.popularity ? w : w1;
+      final picks = List<Wrestler>.from(_selected);
+      final existingIndex = picks.indexWhere((p) => p.name == w.name);
+      if (existingIndex >= 0) {
+        picks.removeAt(existingIndex);
+      } else if (picks.length < _requiredCount) {
+        picks.add(w);
       }
+
+      _setSelectionFromList(picks);
+      _autoPickPrediction();
     });
   }
 
@@ -502,11 +605,7 @@ class _BookingSheetState extends State<_BookingSheet> {
                             letterSpacing: 1.5)),
                     const Spacer(),
                     Text(
-                      w1 != null && w2 != null
-                          ? '2 / 2 selected'
-                          : w1 != null
-                              ? '1 / 2 selected'
-                              : 'Pick 2 wrestlers',
+                      '${_selected.length} / $_requiredCount selected',
                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   ],
@@ -520,7 +619,7 @@ class _BookingSheetState extends State<_BookingSheet> {
                   children: ['Singles', 'Championship', 'Tag Team'].map((t) {
                     final sel = matchType == t;
                     return GestureDetector(
-                      onTap: () => setState(() => matchType = t),
+                      onTap: () => _onMatchTypeChanged(t),
                       child: Container(
                         margin: const EdgeInsets.only(right: 8),
                         padding:
@@ -538,8 +637,8 @@ class _BookingSheetState extends State<_BookingSheet> {
                 ),
               ),
               const SizedBox(height: 10),
-              // Predict winner (shown when both selected)
-              if (w1 != null && w2 != null)
+              // Predict winner
+              if (!_isTagTeam && w1 != null && w2 != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -572,6 +671,36 @@ class _BookingSheetState extends State<_BookingSheet> {
                     ],
                   ),
                 ),
+              if (_isTagTeam && w1 != null && w2 != null && w3 != null && w4 != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      const Text('Predict team: ',
+                          style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      for (final leader in [w1!, w3!])
+                        GestureDetector(
+                          onTap: () => setState(() => predicted = leader),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: predicted?.name == leader.name
+                                  ? const Color(0xFFCC0000)
+                                  : const Color(0xFF2A2A2A),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              leader.name == w1!.name
+                                  ? '${w1!.name.split(' ').first} & ${w2?.name.split(' ').first ?? ''}'
+                                  : '${w3!.name.split(' ').first} & ${w4?.name.split(' ').first ?? ''}',
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               const Divider(color: Color(0xFF2A2A2A), height: 20),
               // Wrestler list
               Expanded(
@@ -585,19 +714,16 @@ class _BookingSheetState extends State<_BookingSheet> {
                         itemCount: available.length,
                         itemBuilder: (ctx, i) {
                           final w = available[i];
-                          final isW1 = w.name == w1?.name;
-                          final isW2 = w.name == w2?.name;
-                          final isSelected = isW1 || isW2;
+                          final selectedIndex = _selected.indexWhere((s) => s.name == w.name);
+                          final isSelected = selectedIndex >= 0;
                           return ListTile(
                             onTap: () => _selectWrestler(w),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
-                            tileColor: isW1
-                                ? const Color(0xFFCC0000).withValues(alpha: 0.12)
-                                : isW2
-                                    ? Colors.blue.withValues(alpha: 0.12)
-                                    : null,
-                            title: Text(w.name,
+                          tileColor: isSelected
+                            ? const Color(0xFFCC0000).withValues(alpha: 0.12)
+                            : null,
+                          title: Text(_nameWithChampionTag(w),
                                 style: TextStyle(
                                     color: isSelected
                                         ? Colors.white
@@ -611,11 +737,9 @@ class _BookingSheetState extends State<_BookingSheet> {
                               style:
                                   const TextStyle(color: Colors.grey, fontSize: 11),
                             ),
-                            trailing: isW1
-                                ? _CircleBadge('1', const Color(0xFFCC0000))
-                                : isW2
-                                    ? const _CircleBadge('2', Colors.blue)
-                                    : null,
+                            trailing: isSelected
+                                ? _CircleBadge('${selectedIndex + 1}', const Color(0xFFCC0000))
+                                : null,
                           );
                         },
                       ),
@@ -630,7 +754,14 @@ class _BookingSheetState extends State<_BookingSheet> {
                     onPressed: _canConfirm
                         ? () {
                             widget.sim.setSlot(
-                                widget.slotIndex, w1!, w2!, matchType, predicted!);
+                              widget.slotIndex,
+                              w1!,
+                              w2!,
+                              matchType,
+                              predicted!,
+                              w3: w3,
+                              w4: w4,
+                            );
                             Navigator.pop(context);
                           }
                         : null,

@@ -3,6 +3,9 @@ import '../models/wrestler.dart';
 import '../services/draftAI.dart';
 
 class DraftViewModel extends ChangeNotifier {
+  static const String universalTitle = 'Universal Champion';
+  static const String intercontinentalTitle = 'Intercontinental Champion';
+
   List<Wrestler> pool;
   final List<Wrestler> _fullPool;
   final int startingBudget;
@@ -27,15 +30,16 @@ class DraftViewModel extends ChangeNotifier {
 
   bool canAfford(Wrestler w) => w.salary <= myBudget;
   bool get canEndDraft => myRoster.length >= minRosterSize;
-  bool get showEndButton => canEndDraft && isMyTurn && !draftComplete;
+  bool get showEndButton => canEndDraft && !draftComplete;
 
   static String toM(int val) {
-  if (val >= 1000) {
-    return '\$${(val / 1000).toStringAsFixed(1)}M';
-  } else {
-    return '\$${val}k';
+    if (val >= 1000) {
+      return '\$${(val / 1000).toStringAsFixed(1)}M';
+    } else {
+      return '\$${val}k';
+    }
   }
-}
+
   String get myBudgetDisplay => toM(myBudget);
   String get aiBudgetDisplay => toM(aiBudget);
 
@@ -58,6 +62,7 @@ class DraftViewModel extends ChangeNotifier {
     if (pool.isEmpty || draftComplete) return;
     if (aiRoster.length >= minRosterSize && pool.length <= 5) {
       draftComplete = true;
+      _assignChampionsAfterDraft();
       lastPickMessage = 'AI ended the draft';
       notifyListeners();
       return;
@@ -76,6 +81,8 @@ class DraftViewModel extends ChangeNotifier {
   void playerEndsDraft() {
     if (!canEndDraft) return;
     draftComplete = true;
+    _assignChampionsAfterDraft();
+    lastPickMessage = 'Draft locked. Champions assigned.';
     notifyListeners();
   }
 
@@ -85,29 +92,54 @@ class DraftViewModel extends ChangeNotifier {
         (w) => w.salary > myBudget && w.salary > aiBudget);
     if (poolEmpty || cantAfford) {
       draftComplete = true;
+      _assignChampionsAfterDraft();
       notifyListeners();
     }
   }
 
   void autoDraft() {
-    restartDraft();
-    final shuffled = List<Wrestler>.from(pool)..shuffle();
+    if (draftComplete) return;
 
-    for (final w in shuffled) {
-      if (myRoster.length >= minRosterSize && aiRoster.length >= minRosterSize) break;
-      if (myRoster.length < minRosterSize && w.salary <= myBudget) {
-        myRoster.add(w);
-        pool.remove(w);
-        myBudget -= w.salary;
-      } else if (aiRoster.length < minRosterSize && w.salary <= aiBudget) {
-        aiRoster.add(w);
-        pool.remove(w);
-        aiBudget -= w.salary;
+    // Auto-fill only the user's roster target and keep draft open for edits/manual picks.
+    int safety = 0;
+    while (myRoster.length < minRosterSize && pool.isNotEmpty && safety < 250) {
+      safety++;
+
+      if (isMyTurn) {
+        final affordable = pool.where((w) => w.salary <= myBudget).toList();
+        if (affordable.isEmpty) break;
+        affordable.sort((a, b) {
+          final aScore = a.popularity + a.inRing + a.charisma;
+          final bScore = b.popularity + b.inRing + b.charisma;
+          return bScore.compareTo(aScore);
+        });
+        final pick = affordable.first;
+        myRoster.add(pick);
+        pool.remove(pick);
+        myBudget -= pick.salary;
+        pickNumber++;
+        isMyTurn = false;
+      } else {
+        final aiAffordable = pool.where((w) => w.salary <= aiBudget).toList();
+        if (aiAffordable.isEmpty) {
+          isMyTurn = true;
+          continue;
+        }
+        final pick = _ai.pickWrestler(pool, myRoster, aiBudget);
+        aiRoster.add(pick);
+        pool.remove(pick);
+        aiBudget -= pick.salary;
+        pickNumber++;
+        isMyTurn = true;
       }
     }
 
-    draftComplete = true;
-    lastPickMessage = 'Auto draft complete!';
+    lastPickMessage =
+        myRoster.length >= minRosterSize
+            ? 'Auto-fill complete. Review roster, then end draft when ready.'
+            : 'Auto-fill stopped: not enough budget/picks left.';
+    // Always return control to player so draft can be reviewed/locked immediately.
+    isMyTurn = true;
     notifyListeners();
   }
 
@@ -121,6 +153,35 @@ class DraftViewModel extends ChangeNotifier {
     pickNumber = 1;
     draftComplete = false;
     lastPickMessage = '';
+    _clearChampionships(pool);
     notifyListeners();
+  }
+
+  void _assignChampionsAfterDraft() {
+    _assignChampionsForRoster(myRoster);
+    _assignChampionsForRoster(aiRoster);
+  }
+
+  void _assignChampionsForRoster(List<Wrestler> roster) {
+    _clearChampionships(roster);
+    if (roster.isEmpty) return;
+
+    final sorted = List<Wrestler>.from(roster)
+      ..sort((a, b) {
+        final aScore = (a.popularity * 2) + a.inRing + a.charisma;
+        final bScore = (b.popularity * 2) + b.inRing + b.charisma;
+        return bScore.compareTo(aScore);
+      });
+
+    sorted.first.championshipTitle = universalTitle;
+    if (sorted.length > 1) {
+      sorted[1].championshipTitle = intercontinentalTitle;
+    }
+  }
+
+  void _clearChampionships(List<Wrestler> wrestlers) {
+    for (final w in wrestlers) {
+      w.championshipTitle = null;
+    }
   }
 }

@@ -11,21 +11,32 @@ class PromoBooking {
 class MatchBooking {
   final Wrestler w1;
   final Wrestler w2;
+  final Wrestler? w3;
+  final Wrestler? w4;
   final String matchType;
   final Wrestler predictedWinner;
 
   const MatchBooking({
     required this.w1,
     required this.w2,
+    this.w3,
+    this.w4,
     required this.matchType,
     required this.predictedWinner,
   });
+
+  bool get isTagTeam => matchType == 'Tag Team' && w3 != null && w4 != null;
+  String get teamALabel => isTagTeam ? '${w1.name} & ${w2.name}' : w1.name;
+  String get teamBLabel => isTagTeam ? '${w3!.name} & ${w4!.name}' : w2.name;
 }
 
 class MatchResult {
   final String position;
+  final String matchType;
   final Wrestler w1;
   final Wrestler w2;
+  final Wrestler? w3;
+  final Wrestler? w4;
   final Wrestler winner;
   final double starRating;
   final int points;
@@ -34,14 +45,21 @@ class MatchResult {
 
   const MatchResult({
     required this.position,
+    required this.matchType,
     required this.w1,
     required this.w2,
+    this.w3,
+    this.w4,
     required this.winner,
     required this.starRating,
     required this.points,
     required this.correctPrediction,
     required this.wasUpset,
   });
+
+  bool get isTagTeam => matchType == 'Tag Team' && w3 != null && w4 != null;
+  String get sideALabel => isTagTeam ? '${w1.name} & ${w2.name}' : w1.name;
+  String get sideBLabel => isTagTeam ? '${w3!.name} & ${w4!.name}' : w2.name;
 }
 
 class WeekSummary {
@@ -108,6 +126,8 @@ class SimViewModel extends ChangeNotifier {
       if (m != null) {
         names.add(m.w1.name);
         names.add(m.w2.name);
+        if (m.w3 != null) names.add(m.w3!.name);
+        if (m.w4 != null) names.add(m.w4!.name);
       }
     }
     for (final p in promos) {
@@ -119,8 +139,23 @@ class SimViewModel extends ChangeNotifier {
   List<Wrestler> get availableWrestlers =>
       playerRoster.where((w) => w.canBeBooked && !_bookedNames.contains(w.name)).toList();
 
-  void setSlot(int index, Wrestler w1, Wrestler w2, String matchType, Wrestler predictedWinner) {
-    card[index] = MatchBooking(w1: w1, w2: w2, matchType: matchType, predictedWinner: predictedWinner);
+  void setSlot(
+    int index,
+    Wrestler w1,
+    Wrestler w2,
+    String matchType,
+    Wrestler predictedWinner, {
+    Wrestler? w3,
+    Wrestler? w4,
+  }) {
+    card[index] = MatchBooking(
+      w1: w1,
+      w2: w2,
+      w3: w3,
+      w4: w4,
+      matchType: matchType,
+      predictedWinner: predictedWinner,
+    );
     notifyListeners();
   }
 
@@ -150,22 +185,68 @@ class SimViewModel extends ChangeNotifier {
       final match = card[i]!;
       final pos = positions[i];
 
-      final rating = _engine.simulateRating(w1: match.w1, w2: match.w2, matchType: match.matchType);
-      final winner = _engine.determineWinner(match.w1, match.w2);
-      final won1 = winner.name == match.w1.name;
-      final loser = won1 ? match.w2 : match.w1;
+      late final double rating;
+      late final Wrestler winner;
+      late final Wrestler loser;
 
-      match.w1.addFeudalEncounter(match.w2.name);
-      match.w2.addFeudalEncounter(match.w1.name);
+      if (match.isTagTeam) {
+        final teamAProxy = _buildTagProxy(match.w1, match.w2, 'A');
+        final teamBProxy = _buildTagProxy(match.w3!, match.w4!, 'B');
+        rating = _engine.simulateRating(
+          w1: teamAProxy,
+          w2: teamBProxy,
+          matchType: match.matchType,
+        );
+        final proxyWinner = _engine.determineWinner(teamAProxy, teamBProxy);
+        final teamAWon = proxyWinner.name == teamAProxy.name;
+        winner = teamAWon ? match.w1 : match.w3!;
+        loser = teamAWon ? match.w3! : match.w1;
 
-      match.w1.currentStamina =
-          (match.w1.currentStamina - _engine.staminaDrain(pos, match.matchType, won1))
-              .clamp(0, match.w1.stamina);
-      match.w2.currentStamina =
-          (match.w2.currentStamina - _engine.staminaDrain(pos, match.matchType, !won1))
-              .clamp(0, match.w2.stamina);
-      match.w1.matchesThisWeek++;
-      match.w2.matchesThisWeek++;
+        _recordTagFeud(match);
+        _applyMatchOutcome(match.w1, pos, match.matchType, won: teamAWon);
+        _applyMatchOutcome(match.w2, pos, match.matchType, won: teamAWon);
+        _applyMatchOutcome(match.w3!, pos, match.matchType, won: !teamAWon);
+        _applyMatchOutcome(match.w4!, pos, match.matchType, won: !teamAWon);
+
+        _engine.updateAfterMatch(
+          wrestler: match.w1,
+          won: teamAWon,
+          starRating: rating,
+          wasMainEvent: i == 3,
+        );
+        _engine.updateAfterMatch(
+          wrestler: match.w2,
+          won: teamAWon,
+          starRating: rating,
+          wasMainEvent: i == 3,
+        );
+        _engine.updateAfterMatch(
+          wrestler: match.w3!,
+          won: !teamAWon,
+          starRating: rating,
+          wasMainEvent: i == 3,
+        );
+        _engine.updateAfterMatch(
+          wrestler: match.w4!,
+          won: !teamAWon,
+          starRating: rating,
+          wasMainEvent: i == 3,
+        );
+      } else {
+        rating = _engine.simulateRating(w1: match.w1, w2: match.w2, matchType: match.matchType);
+        winner = _engine.determineWinner(match.w1, match.w2);
+        final won1 = winner.name == match.w1.name;
+        loser = won1 ? match.w2 : match.w1;
+
+        match.w1.addFeudalEncounter(match.w2.name);
+        match.w2.addFeudalEncounter(match.w1.name);
+
+        _applyMatchOutcome(match.w1, pos, match.matchType, won: won1);
+        _applyMatchOutcome(match.w2, pos, match.matchType, won: !won1);
+
+        _engine.updateAfterMatch(wrestler: winner, won: true, starRating: rating, wasMainEvent: i == 3);
+        _engine.updateAfterMatch(wrestler: loser, won: false, starRating: rating, wasMainEvent: i == 3);
+      }
 
       final correctPred = match.predictedWinner.name == winner.name;
       final wasUpset = winner.popularity < loser.popularity;
@@ -180,17 +261,17 @@ class SimViewModel extends ChangeNotifier {
 
       weekResults.add(MatchResult(
         position: pos,
+        matchType: match.matchType,
         w1: match.w1,
         w2: match.w2,
+        w3: match.w3,
+        w4: match.w4,
         winner: winner,
         starRating: rating,
         points: pts,
         correctPrediction: correctPred,
         wasUpset: wasUpset,
       ));
-
-      _engine.updateAfterMatch(wrestler: winner, won: true, starRating: rating, wasMainEvent: i == 3);
-      _engine.updateAfterMatch(wrestler: loser, won: false, starRating: rating, wasMainEvent: i == 3);
     }
 
     final avgRating = totalRating / 4;
@@ -271,6 +352,7 @@ class SimViewModel extends ChangeNotifier {
 
       aiWeekResults.add(MatchResult(
         position: pos,
+        matchType: type,
         w1: w1,
         w2: w2,
         winner: winner,
@@ -329,5 +411,43 @@ class SimViewModel extends ChangeNotifier {
     if (currentWeek > totalWeeks) seasonOver = true;
 
     notifyListeners();
+  }
+
+  Wrestler _buildTagProxy(Wrestler a, Wrestler b, String key) {
+    final aLead = a.inRing + a.popularity >= b.inRing + b.popularity ? a : b;
+    return Wrestler(
+      name: 'Team$key:${a.name}&${b.name}',
+      promotion: aLead.promotion,
+      role: a.role == b.role ? a.role : aLead.role,
+      wrestlerClass: aLead.wrestlerClass,
+      inRing: ((a.effectiveInRing + b.effectiveInRing) / 2).round(),
+      charisma: ((a.charisma + b.charisma) / 2).round(),
+      promoSkill: ((a.promoSkill + b.promoSkill) / 2).round(),
+      popularity: ((a.popularity + b.popularity) / 2).round(),
+      morale: ((a.morale + b.morale) / 2).round(),
+      stamina: max(a.stamina, b.stamina),
+      currentStamina: ((a.currentStamina + b.currentStamina) / 2).round(),
+      salary: a.salary + b.salary,
+      contractWeeks: min(a.contractWeeks, b.contractWeeks),
+      momentum: ((a.momentum + b.momentum) / 2).round(),
+    );
+  }
+
+  void _recordTagFeud(MatchBooking match) {
+    final teamA = [match.w1, match.w2];
+    final teamB = [match.w3!, match.w4!];
+    for (final a in teamA) {
+      for (final b in teamB) {
+        a.addFeudalEncounter(b.name);
+        b.addFeudalEncounter(a.name);
+      }
+    }
+  }
+
+  void _applyMatchOutcome(Wrestler wrestler, String position, String matchType, {required bool won}) {
+    wrestler.currentStamina =
+        (wrestler.currentStamina - _engine.staminaDrain(position, matchType, won))
+            .clamp(0, wrestler.stamina);
+    wrestler.matchesThisWeek++;
   }
 }
