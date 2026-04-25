@@ -11,19 +11,43 @@ String _nameWithChampionTag(Wrestler wrestler) {
   return wrestler.name;
 }
 
-class BookingScreen extends StatelessWidget {
+class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
+
+  @override
+  State<BookingScreen> createState() => _BookingScreenState();
+}
+
+class _BookingScreenState extends State<BookingScreen> {
+  bool _showingChampionDialog = false;
+
+  void _maybeHandleSeasonSetup(BuildContext context, SimViewModel sim, DraftViewModel draft) {
+    if (sim.seasonStarted || !draft.draftComplete) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || sim.seasonStarted) return;
+
+      if (draft.needsChampionSelection) {
+        if (_showingChampionDialog) return;
+        _showingChampionDialog = true;
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => _ChampionSelectionDialog(draft: draft),
+        );
+        _showingChampionDialog = false;
+      }
+
+      if (!mounted || sim.seasonStarted || draft.needsChampionSelection) return;
+      sim.initSeason(draft.myRoster, draft.aiRoster);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<SimViewModel, DraftViewModel>(
       builder: (context, sim, draft, _) {
-        // Auto-init season after draft completes
-        if (!sim.seasonStarted && draft.draftComplete) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            sim.initSeason(draft.myRoster, draft.aiRoster);
-          });
-        }
+        _maybeHandleSeasonSetup(context, sim, draft);
 
         if (!draft.draftComplete) {
           return _NoDraftScreen();
@@ -46,6 +70,43 @@ class BookingScreen extends StatelessWidget {
                     style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Auto book',
+                onPressed: sim.seasonStarted && !sim.weekSimulated
+                    ? () => sim.autoBookCard()
+                    : null,
+                icon: const Icon(Icons.auto_fix_high),
+              ),
+              PopupMenuButton<String>(
+                color: const Color(0xFF1A1A1A),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'autoWeek':
+                      sim.autoFinishWeek();
+                      if (sim.weekSimulated) {
+                        Navigator.pushNamed(context, '/results');
+                      }
+                      break;
+                    case 'skipSeason':
+                      sim.autoPlayToSeasonEnd();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'autoWeek',
+                    child: Text('Dev: Auto Finish Week',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                  PopupMenuItem(
+                    value: 'skipSeason',
+                    child: Text('Dev: Skip To End Of Season',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ],
           ),
           body: Column(
             children: [
@@ -128,6 +189,138 @@ class BookingScreen extends StatelessWidget {
         );
       }
     });
+  }
+}
+
+class _ChampionSelectionDialog extends StatefulWidget {
+  final DraftViewModel draft;
+
+  const _ChampionSelectionDialog({required this.draft});
+
+  @override
+  State<_ChampionSelectionDialog> createState() => _ChampionSelectionDialogState();
+}
+
+class _ChampionSelectionDialogState extends State<_ChampionSelectionDialog> {
+  Wrestler? universalChampion;
+  Wrestler? intercontinentalChampion;
+
+  @override
+  void initState() {
+    super.initState();
+    final ranked = List<Wrestler>.from(widget.draft.myRoster)
+      ..sort((a, b) {
+        final aScore = (a.popularity * 2) + a.inRing + a.charisma;
+        final bScore = (b.popularity * 2) + b.inRing + b.charisma;
+        return bScore.compareTo(aScore);
+      });
+    if (ranked.isNotEmpty) {
+      universalChampion = ranked.first;
+    }
+    if (ranked.length > 1) {
+      intercontinentalChampion = ranked[1];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roster = widget.draft.myRoster;
+    final canConfirm =
+        universalChampion != null &&
+        intercontinentalChampion != null &&
+        universalChampion!.name != intercontinentalChampion!.name;
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      title: const Text('Assign Your Champions',
+          style: TextStyle(color: Colors.white)),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Choose two wrestlers from your roster before booking your first show.',
+              style: TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            const Text('Universal Title',
+                style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<Wrestler>(
+              value: universalChampion,
+              dropdownColor: const Color(0xFF2A2A2A),
+              decoration: _champFieldDecoration(),
+              items: roster
+                  .map((w) => DropdownMenuItem<Wrestler>(
+                        value: w,
+                        child: Text(w.name,
+                            style: const TextStyle(color: Colors.white)),
+                      ))
+                  .toList(),
+              onChanged: (value) => setState(() => universalChampion = value),
+            ),
+            const SizedBox(height: 14),
+            const Text('Intercontinental Title',
+                style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<Wrestler>(
+              value: intercontinentalChampion,
+              dropdownColor: const Color(0xFF2A2A2A),
+              decoration: _champFieldDecoration(),
+              items: roster
+                  .map((w) => DropdownMenuItem<Wrestler>(
+                        value: w,
+                        child: Text(w.name,
+                            style: const TextStyle(color: Colors.white)),
+                      ))
+                  .toList(),
+              onChanged: (value) => setState(() => intercontinentalChampion = value),
+            ),
+            if (universalChampion != null &&
+                intercontinentalChampion != null &&
+                universalChampion!.name == intercontinentalChampion!.name) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Pick two different wrestlers.',
+                style: TextStyle(color: Colors.redAccent, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: canConfirm
+              ? () {
+                  widget.draft.assignChampions(
+                    universalChampion: universalChampion!,
+                    intercontinentalChampion: intercontinentalChampion!,
+                  );
+                  Navigator.pop(context);
+                }
+              : null,
+          child: const Text('Confirm',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _champFieldDecoration() {
+    return InputDecoration(
+      filled: true,
+      fillColor: const Color(0xFF111111),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFF333333)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFCC0000)),
+      ),
+    );
   }
 }
 
@@ -362,6 +555,19 @@ class _SimulateBar extends StatelessWidget {
           Text('${sim.slotsBooked}/4 booked',
               style: const TextStyle(color: Colors.grey, fontSize: 13)),
           const Spacer(),
+          OutlinedButton(
+            onPressed: sim.seasonStarted && !sim.weekSimulated
+                ? () => sim.autoBookCard()
+                : null,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white24),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            child: const Text('AUTO BOOK',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(width: 10),
           ElevatedButton(
             onPressed: sim.cardFull
     ? () async {
@@ -503,6 +709,8 @@ class _BookingSheetState extends State<_BookingSheet> {
       w4 = widget.initial!.w4;
       matchType = widget.initial!.matchType;
       predicted = widget.initial!.predictedWinner;
+    } else if (matchType == 'Championship') {
+      _preloadChampionshipMatch();
     }
   }
 
@@ -555,6 +763,10 @@ class _BookingSheetState extends State<_BookingSheet> {
     if (nextType == matchType) return;
     setState(() {
       matchType = nextType;
+      if (matchType == 'Championship') {
+        _preloadChampionshipMatch();
+        return;
+      }
       if (!_isTagTeam) {
         w3 = null;
         w4 = null;
@@ -564,6 +776,38 @@ class _BookingSheetState extends State<_BookingSheet> {
       }
       _autoPickPrediction();
     });
+  }
+
+  void _preloadChampionshipMatch() {
+    final available = _available;
+    final champions = available.where((w) => w.isChampion).toList()
+      ..sort((a, b) {
+        int rank(String? t) {
+          if (t == DraftViewModel.universalTitle) return 0;
+          if (t == DraftViewModel.intercontinentalTitle) return 1;
+          return 2;
+        }
+
+        final r = rank(a.championshipTitle).compareTo(rank(b.championshipTitle));
+        if (r != 0) return r;
+        return b.popularity.compareTo(a.popularity);
+      });
+
+    if (champions.isEmpty) return;
+
+    final champion = champions.first;
+    final contenders = available.where((w) => w.name != champion.name).toList()
+      ..sort((a, b) {
+        final aScore = a.popularity + a.inRing + a.charisma;
+        final bScore = b.popularity + b.inRing + b.charisma;
+        return bScore.compareTo(aScore);
+      });
+
+    w1 = champion;
+    w2 = contenders.isNotEmpty ? contenders.first : null;
+    w3 = null;
+    w4 = null;
+    _autoPickPrediction();
   }
 
   void _selectWrestler(Wrestler w) {

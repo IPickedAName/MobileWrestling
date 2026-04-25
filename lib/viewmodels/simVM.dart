@@ -174,6 +174,93 @@ class SimViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void autoBookCard() {
+    if (!seasonStarted || weekSimulated) return;
+
+    card = [null, null, null, null];
+    promos = [null, null];
+
+    final available = List<Wrestler>.from(playerRoster.where((w) => w.canBeBooked));
+    if (available.length < 8) {
+      notifyListeners();
+      return;
+    }
+
+    available.sort((a, b) => _autoBookScore(b).compareTo(_autoBookScore(a)));
+
+    final champions = available.where((w) => w.isChampion).toList()
+      ..sort((a, b) => _autoBookScore(b).compareTo(_autoBookScore(a)));
+
+    final usedNames = <String>{};
+
+    MatchBooking buildSingles(List<Wrestler> picks, String matchType) {
+      final w1 = picks[0];
+      final w2 = picks[1];
+      usedNames.add(w1.name);
+      usedNames.add(w2.name);
+      return MatchBooking(
+        w1: w1,
+        w2: w2,
+        matchType: matchType,
+        predictedWinner: w1.popularity >= w2.popularity ? w1 : w2,
+      );
+    }
+
+    if (champions.length >= 2) {
+      final mainEventPool = [champions[0], champions[1]];
+      card[3] = buildSingles(mainEventPool, 'Championship');
+    } else {
+      final mainEventPool = available.where((w) => !usedNames.contains(w.name)).take(2).toList();
+      if (mainEventPool.length == 2) {
+        card[3] = buildSingles(mainEventPool, 'Singles');
+      }
+    }
+
+    final remaining = available.where((w) => !usedNames.contains(w.name)).toList();
+    for (int slot = 0; slot < 3; slot++) {
+      final start = slot * 2;
+      if (remaining.length >= start + 2) {
+        card[slot] = buildSingles(
+          [remaining[start], remaining[start + 1]],
+          'Singles',
+        );
+      }
+    }
+
+    // Auto-book leaves unused wrestlers benched so smaller rosters can recover.
+
+    notifyListeners();
+  }
+
+  void autoFinishWeek() {
+    if (!seasonStarted || weekSimulated) return;
+    autoBookCard();
+    if (cardFull) {
+      simulateWeek();
+    }
+  }
+
+  void autoPlayToSeasonEnd() {
+    if (!seasonStarted) return;
+
+    int safety = totalWeeks * 3;
+
+    while (!seasonOver && safety > 0) {
+      safety--;
+      if (!weekSimulated) {
+        autoBookCard();
+        if (!cardFull) {
+          _recoverRosterForAutoPlay();
+          continue;
+        }
+        simulateWeek();
+      }
+      advanceWeek();
+    }
+
+    notifyListeners();
+  }
+
   void simulateWeek() {
     if (!cardFull) return;
 
@@ -449,5 +536,29 @@ class SimViewModel extends ChangeNotifier {
         (wrestler.currentStamina - _engine.staminaDrain(position, matchType, won))
             .clamp(0, wrestler.stamina);
     wrestler.matchesThisWeek++;
+  }
+
+  int _bookingScore(Wrestler wrestler) {
+    return (wrestler.popularity * 2) + wrestler.inRing + wrestler.charisma + wrestler.momentum;
+  }
+
+  int _autoBookScore(Wrestler wrestler) {
+    return _bookingScore(wrestler) + (wrestler.currentStamina * 3);
+  }
+
+  void _recoverRosterForAutoPlay() {
+    for (final wrestler in playerRoster) {
+      _engine.recoverStamina(wrestler, benchedThisWeek: true);
+      wrestler.matchesThisWeek = 0;
+    }
+    for (final wrestler in aiRoster) {
+      _engine.recoverStamina(wrestler, benchedThisWeek: true);
+      wrestler.matchesThisWeek = 0;
+    }
+    card = [null, null, null, null];
+    promos = [null, null];
+    weekResults = [];
+    aiWeekResults = [];
+    weekSimulated = false;
   }
 }
