@@ -122,23 +122,49 @@ class FirestoreService {
 
     await _db.runTransaction((transaction) async {
       final statsSnap = await transaction.get(statsRef);
-      final oldStats = statsSnap.data() ?? {};
+      final weekSnap = await transaction.get(weekRef);
 
-      final int oldTotalPoints = oldStats['totalPoints'] ?? 0;
-      final int oldWins = oldStats['wins'] ?? 0;
-      final int oldLosses = oldStats['losses'] ?? 0;
-      final int oldWeeksPlayed = oldStats['weeksPlayed'] ?? 0;
-      final double oldBestRating =
-          ((oldStats['bestRating'] ?? 0.0) as num).toDouble();
-      final double oldAverageRating =
+      final oldStats = statsSnap.data() ?? {};
+      final oldWeek = weekSnap.data();
+
+      int oldTotalPoints = oldStats['totalPoints'] ?? 0;
+      int oldWins = oldStats['wins'] ?? 0;
+      int oldLosses = oldStats['losses'] ?? 0;
+      int oldWeeksPlayed = oldStats['weeksPlayed'] ?? 0;
+
+      double oldAverageRating =
           ((oldStats['averageRating'] ?? 0.0) as num).toDouble();
+
+      if (oldWeek != null) {
+        final int previousPoints = oldWeek['playerPoints'] ?? 0;
+        final int previousAiPoints = oldWeek['aiPoints'] ?? 0;
+        final bool previousWon = previousPoints >= previousAiPoints;
+        final double previousRating =
+            ((oldWeek['avgRating'] ?? 0.0) as num).toDouble();
+
+        oldTotalPoints -= previousPoints;
+
+        if (previousWon) {
+          oldWins -= 1;
+        } else {
+          oldLosses -= 1;
+        }
+
+        if (oldWeeksPlayed > 1) {
+          oldAverageRating =
+              ((oldAverageRating * oldWeeksPlayed) - previousRating) /
+                  (oldWeeksPlayed - 1);
+        } else {
+          oldAverageRating = 0.0;
+        }
+
+        oldWeeksPlayed -= 1;
+      }
 
       final int newWeeksPlayed = oldWeeksPlayed + 1;
       final int newTotalPoints = oldTotalPoints + playerPoints;
       final int newWins = oldWins + (playerWon ? 1 : 0);
       final int newLosses = oldLosses + (playerWon ? 0 : 1);
-      final double newBestRating =
-          avgRating > oldBestRating ? avgRating : oldBestRating;
 
       final double newAverageRating =
           ((oldAverageRating * oldWeeksPlayed) + avgRating) / newWeeksPlayed;
@@ -149,15 +175,28 @@ class FirestoreService {
         'aiPoints': aiPoints,
         'avgRating': avgRating,
         'result': playerWon ? 'W' : 'L',
-        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      final weeksSnapshot =
+          await userRef.collection('weeks').get();
+
+      double bestRating = avgRating;
+
+      for (final doc in weeksSnapshot.docs) {
+        final data = doc.data();
+        final double rating = ((data['avgRating'] ?? 0.0) as num).toDouble();
+        if (rating > bestRating) {
+          bestRating = rating;
+        }
+      }
 
       transaction.set(statsRef, {
         'totalPoints': newTotalPoints,
         'wins': newWins,
         'losses': newLosses,
         'weeksPlayed': newWeeksPlayed,
-        'bestRating': newBestRating,
+        'bestRating': bestRating,
         'averageRating': newAverageRating,
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
