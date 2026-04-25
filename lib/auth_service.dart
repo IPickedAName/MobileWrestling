@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import '../firestore_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirestoreService _firestoreService = FirestoreService();
 
   User? get currentUser => _auth.currentUser;
 
@@ -14,7 +16,17 @@ class AuthService {
         email: email.trim(),
         password: password.trim(),
       );
-      return credential.user;
+
+      final user = credential.user;
+
+      if (user != null) {
+        await _firestoreService.createUserProfileIfMissing(
+          uid: user.uid,
+          email: user.email ?? email.trim(),
+        );
+      }
+
+      return user;
     } on FirebaseAuthException catch (e) {
       throw Exception(e.message ?? 'Login failed');
     } catch (e) {
@@ -31,7 +43,17 @@ class AuthService {
         email: email.trim(),
         password: password.trim(),
       );
-      return credential.user;
+
+      final user = credential.user;
+
+      if (user != null) {
+        await _firestoreService.createUserProfileIfMissing(
+          uid: user.uid,
+          email: user.email ?? email.trim(),
+        );
+      }
+
+      return user;
     } on FirebaseAuthException catch (e) {
       throw Exception(e.message ?? 'Registration failed');
     } catch (e) {

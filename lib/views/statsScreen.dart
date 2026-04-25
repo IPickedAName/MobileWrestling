@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/wrestler.dart';
-import '../services/wrestlerService.dart';
+import '../firestore_service.dart';
 import 'appDrawer.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -11,21 +10,27 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  List<Wrestler> wrestlers = [];
+  final FirestoreService _firestoreService = FirestoreService();
+
   bool isLoading = true;
   String errorMessage = '';
+  Map<String, dynamic> currentStats = {};
+  List<Map<String, dynamic>> weeklyStats = [];
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    loadStats();
   }
 
-  Future<void> _loadStats() async {
+  Future<void> loadStats() async {
     try {
-      final loaded = await WrestlerService.loadWrestlers();
+      final stats = await _firestoreService.getCurrentStats();
+      final weeks = await _firestoreService.getWeeklyStats();
+
       setState(() {
-        wrestlers = loaded;
+        currentStats = stats ?? {};
+        weeklyStats = weeks;
         isLoading = false;
       });
     } catch (e) {
@@ -54,23 +59,24 @@ class _StatsScreenState extends State<StatsScreen> {
           title: const Text('Stats'),
         ),
         body: Center(
-          child: Text(errorMessage, style: const TextStyle(color: Colors.white)),
+          child: Text(
+            errorMessage,
+            style: const TextStyle(color: Colors.white),
+          ),
         ),
       );
     }
 
-    final topPopularity = [...wrestlers]
-      ..sort((a, b) => b.popularity.compareTo(a.popularity));
-    final topInRing = [...wrestlers]
-      ..sort((a, b) => b.inRing.compareTo(a.inRing));
-    final topSalary = [...wrestlers]
-      ..sort((a, b) => b.salary.compareTo(a.salary));
-    final topCharisma = [...wrestlers]
-      ..sort((a, b) => b.charisma.compareTo(a.charisma));
+    final int totalPoints = currentStats['totalPoints'] ?? 0;
+    final int wins = currentStats['wins'] ?? 0;
+    final int losses = currentStats['losses'] ?? 0;
+    final int weeksPlayed = currentStats['weeksPlayed'] ?? 0;
 
-    final avgPopularity = wrestlers.map((w) => w.popularity).reduce((a, b) => a + b) / wrestlers.length;
-    final avgSalary     = wrestlers.map((w) => w.salary).reduce((a, b) => a + b) / wrestlers.length;
-    final avgInRing     = wrestlers.map((w) => w.inRing).reduce((a, b) => a + b) / wrestlers.length;
+    final double bestRating =
+        ((currentStats['bestRating'] ?? 0.0) as num).toDouble();
+
+    final double averageRating =
+        ((currentStats['averageRating'] ?? 0.0) as num).toDouble();
 
     return Scaffold(
       backgroundColor: const Color(0xFF111111),
@@ -80,41 +86,69 @@ class _StatsScreenState extends State<StatsScreen> {
         foregroundColor: Colors.white,
         title: const Text('Stats'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Row(
-            children: [
-              Expanded(child: _summaryCard('Roster', '${wrestlers.length}')),
-              const SizedBox(width: 10),
-              Expanded(child: _summaryCard('Avg POP', avgPopularity.toStringAsFixed(1))),
-              const SizedBox(width: 10),
-              Expanded(child: _summaryCard('Avg Ring', avgInRing.toStringAsFixed(1))),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _summaryCard('Avg Salary', '\$${avgSalary.toStringAsFixed(0)}k'),
-          const SizedBox(height: 24),
-
-          _sectionTitle('Top Popularity'),
-          const SizedBox(height: 10),
-          ...topPopularity.take(5).map((w) => _wrestlerTile(w, 'POP ${w.popularity}')),
-
-          const SizedBox(height: 20),
-          _sectionTitle('Best In-Ring'),
-          const SizedBox(height: 10),
-          ...topInRing.take(5).map((w) => _wrestlerTile(w, 'IN-RING ${w.inRing}')),
-
-          const SizedBox(height: 20),
-          _sectionTitle('Highest Salary'),
-          const SizedBox(height: 10),
-          ...topSalary.take(5).map((w) => _wrestlerTile(w, '\$${w.salary}k')),
-
-          const SizedBox(height: 20),
-          _sectionTitle('Top Charisma'),
-          const SizedBox(height: 10),
-          ...topCharisma.take(5).map((w) => _wrestlerTile(w, 'CHA ${w.charisma}')),
-        ],
+      body: RefreshIndicator(
+        onRefresh: loadStats,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Row(
+              children: [
+                Expanded(child: _summaryCard('Points', '$totalPoints')),
+                const SizedBox(width: 10),
+                Expanded(child: _summaryCard('Wins', '$wins')),
+                const SizedBox(width: 10),
+                Expanded(child: _summaryCard('Losses', '$losses')),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _summaryCard('Weeks', '$weeksPlayed')),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _summaryCard(
+                    'Best ★',
+                    bestRating.toStringAsFixed(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _summaryCard(
+                    'Avg ★',
+                    averageRating.toStringAsFixed(2),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Weekly History',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 21,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (weeklyStats.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: const Text(
+                  'No weekly stats yet. Simulate a week to start tracking.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              )
+            else
+              ...weeklyStats.map((week) {
+                return _weekTile(week);
+              }),
+          ],
+        ),
       ),
     );
   }
@@ -133,41 +167,57 @@ class _StatsScreenState extends State<StatsScreen> {
             value,
             style: const TextStyle(
               color: Colors.redAccent,
-              fontSize: 22,
+              fontSize: 21,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 6),
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-    );
-  }
+  Widget _weekTile(Map<String, dynamic> week) {
+    final int weekNumber = week['weekNumber'] ?? 0;
+    final int playerPoints = week['playerPoints'] ?? 0;
+    final int aiPoints = week['aiPoints'] ?? 0;
+    final String result = week['result'] ?? '';
+    final double avgRating = ((week['avgRating'] ?? 0.0) as num).toDouble();
 
-  Widget _wrestlerTile(Wrestler wrestler, String stat) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(
+          color: result == 'W'
+              ? Colors.green.withOpacity(0.35)
+              : Colors.red.withOpacity(0.35),
+        ),
       ),
       child: ListTile(
-        title: Text(wrestler.name, style: const TextStyle(color: Colors.white)),
+        title: Text(
+          'Week $weekNumber',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         subtitle: Text(
-          '${wrestler.promotion} • ${wrestler.wrestlerClass}',
+          'You: $playerPoints pts • AI: $aiPoints pts • Avg ★ ${avgRating.toStringAsFixed(2)}',
           style: const TextStyle(color: Colors.white70),
         ),
         trailing: Text(
-          stat,
-          style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold),
+          result,
+          style: TextStyle(
+            color: result == 'W' ? Colors.greenAccent : Colors.redAccent,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

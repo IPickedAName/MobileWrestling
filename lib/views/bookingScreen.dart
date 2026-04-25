@@ -5,6 +5,7 @@ import '../viewmodels/simVM.dart';
 import '../viewmodels/draft_VM.dart';
 import 'appDrawer.dart';
 import '../widgets/champion_badge.dart';
+import '../firestore_service.dart';
 
 String _nameWithChampionTag(Wrestler wrestler) {
   return wrestler.name;
@@ -363,11 +364,25 @@ class _SimulateBar extends StatelessWidget {
           const Spacer(),
           ElevatedButton(
             onPressed: sim.cardFull
-                ? () {
-                    sim.simulateWeek();
-                    Navigator.pushNamed(context, '/results');
-                  }
-                : null,
+    ? () async {
+        sim.simulateWeek();
+
+        if (sim.history.isNotEmpty) {
+          final summary = sim.history.last;
+
+          await FirestoreService().recordWeeklyStats(
+            weekNumber: sim.currentWeek,
+            playerPoints: summary.playerPoints,
+            aiPoints: summary.aiPoints,
+            avgRating: summary.avgRating,
+          );
+        }
+
+        if (context.mounted) {
+          Navigator.pushNamed(context, '/results');
+        }
+      }
+    : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: sim.cardFull ? const Color(0xFFCC0000) : Colors.grey[850],
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
