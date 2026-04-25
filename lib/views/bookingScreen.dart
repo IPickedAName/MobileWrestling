@@ -98,7 +98,7 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
               PopupMenuButton<String>(
                 color: const Color(0xFF1A1A1A),
-                onSelected: (value) {
+                onSelected: (value) async {
                   switch (value) {
                     case 'autoWeek':
                       final historyBefore = sim.history.length;
@@ -113,8 +113,18 @@ class _BookingScreenState extends State<BookingScreen> {
                           matchRevenue: summary.matchRevenue,
                           cardCost: summary.cardCost,
                         );
+                        try {
+                          await FirestoreService().recordWeeklyStats(
+                            weekNumber: summary.week,
+                            playerPoints: summary.playerPoints,
+                            aiPoints: summary.aiPoints,
+                            avgRating: summary.avgRating,
+                          );
+                        } catch (_) {
+                          // Local simulation still works without Firebase sync.
+                        }
                       }
-                      if (sim.weekSimulated) {
+                      if (sim.weekSimulated && context.mounted) {
                         Navigator.pushNamed(context, '/results');
                       }
                       break;
@@ -676,13 +686,74 @@ class _Tag extends StatelessWidget {
 
 // ─── SIMULATE BAR ─────────────────────────────────────────────────────────────
 
-class _SimulateBar extends StatelessWidget {
+class _SimulateBar extends StatefulWidget {
   final SimViewModel sim;
   final DraftViewModel draft;
   const _SimulateBar({required this.sim, required this.draft});
 
   @override
+  State<_SimulateBar> createState() => _SimulateBarState();
+}
+
+class _SimulateBarState extends State<_SimulateBar> {
+  bool isSaving = false;
+
+  Future<void> _simulateAndSave(BuildContext context) async {
+    if (!widget.sim.cardFull || isSaving) return;
+
+    setState(() {
+      isSaving = true;
+    });
+
+    try {
+      widget.sim.simulateWeek();
+
+      if (widget.sim.history.isNotEmpty) {
+        final summary = widget.sim.history.last;
+        widget.draft.applyWeeklyFinance(
+          week: summary.week,
+          playerPoints: summary.playerPoints,
+          aiPoints: summary.aiPoints,
+          avgRating: summary.avgRating,
+          matchRevenue: summary.matchRevenue,
+          cardCost: summary.cardCost,
+        );
+
+        try {
+          await FirestoreService().recordWeeklyStats(
+            weekNumber: summary.week,
+            playerPoints: summary.playerPoints,
+            aiPoints: summary.aiPoints,
+            avgRating: summary.avgRating,
+          );
+        } catch (_) {
+          // Local simulation still works without Firebase sync.
+        }
+      }
+
+      if (context.mounted) {
+        Navigator.pushNamed(context, '/results');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save weekly stats: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final sim = widget.sim;
+    final draft = widget.draft;
+
     return Container(
       color: const Color(0xFF0D0D0D),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -704,7 +775,7 @@ class _SimulateBar extends StatelessWidget {
           ),
           const Spacer(),
           OutlinedButton(
-            onPressed: sim.seasonStarted && !sim.weekSimulated
+            onPressed: sim.seasonStarted && !sim.weekSimulated && !isSaving
                 ? () => sim.autoBookCard()
                 : null,
             style: OutlinedButton.styleFrom(
@@ -712,50 +783,41 @@ class _SimulateBar extends StatelessWidget {
               side: const BorderSide(color: Colors.white24),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
-            child: const Text('AUTO BOOK',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: const Text(
+              'AUTO BOOK',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ),
           const SizedBox(width: 10),
           ElevatedButton(
-            onPressed: sim.cardFull
-    ? () async {
-        sim.simulateWeek();
-
-        if (sim.history.isNotEmpty) {
-          final summary = sim.history.last;
-          draft.applyWeeklyFinance(
-            week: summary.week,
-            playerPoints: summary.playerPoints,
-            aiPoints: summary.aiPoints,
-            avgRating: summary.avgRating,
-            matchRevenue: summary.matchRevenue,
-            cardCost: summary.cardCost,
-          );
-
-          try {
-            await FirestoreService().recordWeeklyStats(
-              weekNumber: sim.currentWeek,
-              playerPoints: summary.playerPoints,
-              aiPoints: summary.aiPoints,
-              avgRating: summary.avgRating,
-            );
-          } catch (_) {
-            // Local simulation still works without Firebase sync.
-          }
-        }
-
-        if (context.mounted) {
-          Navigator.pushNamed(context, '/results');
-        }
-      }
-    : null,
+            onPressed: sim.cardFull && !isSaving
+                ? () => _simulateAndSave(context)
+                : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: sim.cardFull ? const Color(0xFFCC0000) : Colors.grey[850],
+              backgroundColor:
+                  sim.cardFull ? const Color(0xFFCC0000) : Colors.grey[850],
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('SIMULATE WEEK',
-                style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
+            child: isSaving
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    'SIMULATE WEEK',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                      fontSize: 13,
+                    ),
+                  ),
           ),
         ],
       ),

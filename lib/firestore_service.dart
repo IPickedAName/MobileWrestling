@@ -146,29 +146,69 @@ class FirestoreService {
     final weekRef = userRef.collection('weeks').doc('week_$weekNumber');
 
     final bool playerWon = playerPoints >= aiPoints;
+    bool needsBestRatingRecalc = false;
 
     await db.runTransaction((transaction) async {
       final statsSnap = await transaction.get(statsRef);
-      final oldStats = statsSnap.data() ?? {};
+      final weekSnap = await transaction.get(weekRef);
 
-      final int oldTotalPoints = oldStats['totalPoints'] ?? 0;
-      final int oldWins = oldStats['wins'] ?? 0;
-      final int oldLosses = oldStats['losses'] ?? 0;
-      final int oldWeeksPlayed = oldStats['weeksPlayed'] ?? 0;
+      final oldStats = statsSnap.data() ?? {};
+      final oldWeek = weekSnap.data();
       final double oldBestRating =
           ((oldStats['bestRating'] ?? 0.0) as num).toDouble();
-      final double oldAverageRating =
+
+      int oldTotalPoints = oldStats['totalPoints'] ?? 0;
+      int oldWins = oldStats['wins'] ?? 0;
+      int oldLosses = oldStats['losses'] ?? 0;
+      int oldWeeksPlayed = oldStats['weeksPlayed'] ?? 0;
+      double? previousRating;
+
+      double oldAverageRating =
           ((oldStats['averageRating'] ?? 0.0) as num).toDouble();
+
+      if (oldWeek != null) {
+        final int previousPoints = oldWeek['playerPoints'] ?? 0;
+        final int previousAiPoints = oldWeek['aiPoints'] ?? 0;
+        final bool previousWon = previousPoints >= previousAiPoints;
+        previousRating =
+            ((oldWeek['avgRating'] ?? 0.0) as num).toDouble();
+
+        oldTotalPoints -= previousPoints;
+
+        if (previousWon) {
+          oldWins -= 1;
+        } else {
+          oldLosses -= 1;
+        }
+
+        if (oldWeeksPlayed > 1) {
+          oldAverageRating =
+              ((oldAverageRating * oldWeeksPlayed) - previousRating) /
+                  (oldWeeksPlayed - 1);
+        } else {
+          oldAverageRating = 0.0;
+        }
+
+        oldWeeksPlayed -= 1;
+      }
 
       final int newWeeksPlayed = oldWeeksPlayed + 1;
       final int newTotalPoints = oldTotalPoints + playerPoints;
       final int newWins = oldWins + (playerWon ? 1 : 0);
       final int newLosses = oldLosses + (playerWon ? 0 : 1);
-      final double newBestRating =
-          avgRating > oldBestRating ? avgRating : oldBestRating;
 
       final double newAverageRating =
           ((oldAverageRating * oldWeeksPlayed) + avgRating) / newWeeksPlayed;
+      double bestRating = avgRating > oldBestRating ? avgRating : oldBestRating;
+
+      if (oldWeek != null &&
+          previousRating != null &&
+          previousRating >= oldBestRating &&
+          avgRating < oldBestRating) {
+        // The overwritten week held the previous best rating, and new rating is lower.
+        // Defer best-rating recompute with a cheap top-1 query after transaction.
+        needsBestRatingRecalc = true;
+      }
 
       transaction.set(weekRef, {
         'weekNumber': weekNumber,
@@ -176,7 +216,7 @@ class FirestoreService {
         'aiPoints': aiPoints,
         'avgRating': avgRating,
         'result': playerWon ? 'W' : 'L',
-        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       transaction.set(statsRef, {
@@ -184,10 +224,28 @@ class FirestoreService {
         'wins': newWins,
         'losses': newLosses,
         'weeksPlayed': newWeeksPlayed,
-        'bestRating': newBestRating,
+        'bestRating': bestRating,
         'averageRating': newAverageRating,
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     });
+
+    if (needsBestRatingRecalc) {
+      final topWeekSnap = await userRef
+          .collection('weeks')
+          .orderBy('avgRating', descending: true)
+          .limit(1)
+          .get();
+
+      final double recalculatedBest = topWeekSnap.docs.isEmpty
+          ? 0.0
+          : ((topWeekSnap.docs.first.data()['avgRating'] ?? 0.0) as num)
+              .toDouble();
+
+      await statsRef.set({
+        'bestRating': recalculatedBest,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
   }
 }
