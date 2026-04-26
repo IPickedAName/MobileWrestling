@@ -3,41 +3,66 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
+import '../models/wrestler.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+
+
 
 class FirestoreService {
-  FirebaseFirestore? get _db {
-    try {
-      if (Firebase.apps.isEmpty) return null;
-      return FirebaseFirestore.instance;
-    } catch (_) {
-      return null;
-    }
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  String? get currentUserId => _auth.currentUser?.uid;
+
+  int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString()) ?? 0;
   }
 
-  FirebaseAuth? get _auth {
-    try {
-      if (Firebase.apps.isEmpty) return null;
-      return FirebaseAuth.instance;
-    } catch (_) {
-      return null;
-    }
+  double _toDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? 0.0;
   }
+  Future<String> uploadProfileImage(File imageFile) async {
+  final uid = currentUserId;
+  if (uid == null) return '';
 
-  String? get currentUserId => _auth?.currentUser?.uid;
+  final fileName = DateTime.now().millisecondsSinceEpoch.toString();
 
+  final ref = FirebaseStorage.instance
+      .ref()
+      .child('profile_pictures')
+      .child(uid)
+      .child('$fileName.jpg');
+
+  final uploadTask = await ref.putFile(
+    imageFile,
+    SettableMetadata(contentType: 'image/jpeg'),
+  );
+
+  final url = await uploadTask.ref.getDownloadURL();
+
+  await _db.collection('users').doc(uid).set({
+    'profilePicUrl': url,
+    'updatedAt': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true));
+
+  return url;
+}
   Future<void> uploadWrestlersFromJson() async {
-    final db = _db;
-    if (db == null) return;
-
     final String jsonString =
         await rootBundle.loadString('assets/wrestlers.json');
 
     final List<dynamic> jsonData = json.decode(jsonString);
-
-    final batch = db.batch();
+    final batch = _db.batch();
 
     for (final wrestler in jsonData) {
-      final docRef = db.collection('wrestlers').doc(wrestler['name']);
+      final docRef = _db.collection('wrestlers').doc(wrestler['name']);
       batch.set(docRef, wrestler);
     }
 
@@ -48,10 +73,7 @@ class FirestoreService {
     required String uid,
     required String email,
   }) async {
-    final db = _db;
-    if (db == null) return;
-
-    final userRef = db.collection('users').doc(uid);
+    final userRef = _db.collection('users').doc(uid);
     final userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -60,40 +82,29 @@ class FirestoreService {
         'name': 'New Booker',
         'bio': 'Tap edit to add your bio.',
         'profilePicUrl': '',
+        'activeSeasonId': '',
         'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      await userRef.collection('stats').doc('current').set({
-        'totalPoints': 0,
-        'wins': 0,
-        'losses': 0,
-        'weeksPlayed': 0,
-        'bestRating': 0.0,
-        'averageRating': 0.0,
-        'lastUpdated': FieldValue.serverTimestamp(),
       });
     }
   }
 
   Future<Map<String, dynamic>?> getProfile() async {
     final uid = currentUserId;
-    final db = _db;
-    if (uid == null || db == null) return null;
+    if (uid == null) return null;
 
-    final doc = await db.collection('users').doc(uid).get();
+    final doc = await _db.collection('users').doc(uid).get();
     return doc.data();
   }
 
   Future<void> updateProfile({
     required String name,
     required String bio,
-    String profilePicUrl = '',
+    required String profilePicUrl,
   }) async {
     final uid = currentUserId;
-    final db = _db;
-    if (uid == null || db == null) return;
+    if (uid == null) return;
 
-    await db.collection('users').doc(uid).set({
+    await _db.collection('users').doc(uid).set({
       'name': name,
       'bio': bio,
       'profilePicUrl': profilePicUrl,
@@ -101,14 +112,114 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
-  Future<Map<String, dynamic>?> getCurrentStats() async {
+  Future<String> createNewSeasonFromDraft({
+    required String teamName,
+    required List<Wrestler> roster,
+  }) async {
     final uid = currentUserId;
-    final db = _db;
-    if (uid == null || db == null) return null;
+    if (uid == null) return '';
 
-    final doc = await db
+    final userRef = _db.collection('users').doc(uid);
+    final seasonRef = userRef.collection('seasons').doc();
+
+    final rosterData = roster.map((w) {
+      return {
+        'name': w.name,
+        'promotion': w.promotion,
+        'role': w.role,
+        'class': w.wrestlerClass,
+        'inRing': w.inRing,
+        'charisma': w.charisma,
+        'promoSkill': w.promoSkill,
+        'popularity': w.popularity,
+        'morale': w.morale,
+        'stamina': w.stamina,
+        'currentStamina': w.currentStamina,
+        'salary': w.salary,
+        'contractWeeks': w.contractWeeks,
+        'momentum': w.momentum,
+        'championshipTitle': w.championshipTitle,
+      };
+    }).toList();
+
+    await seasonRef.set({
+      'teamName': teamName,
+      'roster': rosterData,
+      'createdAt': FieldValue.serverTimestamp(),
+      'isActive': true,
+    });
+
+    await seasonRef.collection('stats').doc('current').set({
+      'totalPoints': 0,
+      'wins': 0,
+      'losses': 0,
+      'weeksPlayed': 0,
+      'bestRating': 0.0,
+      'averageRating': 0.0,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
+
+    await userRef.set({
+      'activeSeasonId': seasonRef.id,
+    }, SetOptions(merge: true));
+
+    return seasonRef.id;
+  }
+
+  Future<String?> getActiveSeasonId() async {
+    final uid = currentUserId;
+    if (uid == null) return null;
+
+    final userDoc = await _db.collection('users').doc(uid).get();
+    final data = userDoc.data();
+
+    final activeSeasonId = data?['activeSeasonId'];
+
+    if (activeSeasonId == null || activeSeasonId.toString().isEmpty) {
+      return null;
+    }
+
+    return activeSeasonId.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> getSeasons() async {
+    final uid = currentUserId;
+    if (uid == null) return [];
+
+    final snapshot = await _db
         .collection('users')
         .doc(uid)
+        .collection('seasons')
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['seasonId'] = doc.id;
+      return data;
+    }).toList();
+  }
+
+  Future<void> setActiveSeason(String seasonId) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+
+    await _db.collection('users').doc(uid).set({
+      'activeSeasonId': seasonId,
+    }, SetOptions(merge: true));
+  }
+
+  Future<Map<String, dynamic>?> getCurrentStatsForSeason(
+    String seasonId,
+  ) async {
+    final uid = currentUserId;
+    if (uid == null) return null;
+
+    final doc = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('seasons')
+        .doc(seasonId)
         .collection('stats')
         .doc('current')
         .get();
@@ -116,14 +227,17 @@ class FirestoreService {
     return doc.data();
   }
 
-  Future<List<Map<String, dynamic>>> getWeeklyStats() async {
+  Future<List<Map<String, dynamic>>> getWeeklyStatsForSeason(
+    String seasonId,
+  ) async {
     final uid = currentUserId;
-    final db = _db;
-    if (uid == null || db == null) return [];
+    if (uid == null) return [];
 
-    final snapshot = await db
+    final snapshot = await _db
         .collection('users')
         .doc(uid)
+        .collection('seasons')
+        .doc(seasonId)
         .collection('weeks')
         .orderBy('weekNumber')
         .get();
@@ -138,76 +252,67 @@ class FirestoreService {
     required double avgRating,
   }) async {
     final uid = currentUserId;
-    final db = _db;
-    if (uid == null || db == null) return;
+    if (uid == null) return;
 
-    final userRef = db.collection('users').doc(uid);
-    final statsRef = userRef.collection('stats').doc('current');
-    final weekRef = userRef.collection('weeks').doc('week_$weekNumber');
+    final seasonId = await getActiveSeasonId();
+    if (seasonId == null) return;
+
+    final seasonRef =
+        _db.collection('users').doc(uid).collection('seasons').doc(seasonId);
+
+    final statsRef = seasonRef.collection('stats').doc('current');
+    final weekRef = seasonRef.collection('weeks').doc('week_$weekNumber');
 
     final bool playerWon = playerPoints >= aiPoints;
-    bool needsBestRatingRecalc = false;
 
-    await db.runTransaction((transaction) async {
+    await _db.runTransaction((transaction) async {
       final statsSnap = await transaction.get(statsRef);
       final weekSnap = await transaction.get(weekRef);
 
       final oldStats = statsSnap.data() ?? {};
       final oldWeek = weekSnap.data();
-      final double oldBestRating =
-          ((oldStats['bestRating'] ?? 0.0) as num).toDouble();
 
-      int oldTotalPoints = oldStats['totalPoints'] ?? 0;
-      int oldWins = oldStats['wins'] ?? 0;
-      int oldLosses = oldStats['losses'] ?? 0;
-      int oldWeeksPlayed = oldStats['weeksPlayed'] ?? 0;
-      double? previousRating;
-
-      double oldAverageRating =
-          ((oldStats['averageRating'] ?? 0.0) as num).toDouble();
+      int totalPoints = _toInt(oldStats['totalPoints']);
+      int wins = _toInt(oldStats['wins']);
+      int losses = _toInt(oldStats['losses']);
+      int weeksPlayed = _toInt(oldStats['weeksPlayed']);
+      double averageRating = _toDouble(oldStats['averageRating']);
+      double bestRating = _toDouble(oldStats['bestRating']);
 
       if (oldWeek != null) {
-        final int previousPoints = oldWeek['playerPoints'] ?? 0;
-        final int previousAiPoints = oldWeek['aiPoints'] ?? 0;
-        final bool previousWon = previousPoints >= previousAiPoints;
-        previousRating =
-            ((oldWeek['avgRating'] ?? 0.0) as num).toDouble();
+        final int oldPlayerPoints = _toInt(oldWeek['playerPoints']);
+        final int oldAiPoints = _toInt(oldWeek['aiPoints']);
+        final bool oldWon = oldPlayerPoints >= oldAiPoints;
+        final double oldRating = _toDouble(oldWeek['avgRating']);
 
-        oldTotalPoints -= previousPoints;
+        totalPoints -= oldPlayerPoints;
 
-        if (previousWon) {
-          oldWins -= 1;
+        if (oldWon) {
+          wins -= 1;
         } else {
-          oldLosses -= 1;
+          losses -= 1;
         }
 
-        if (oldWeeksPlayed > 1) {
-          oldAverageRating =
-              ((oldAverageRating * oldWeeksPlayed) - previousRating) /
-                  (oldWeeksPlayed - 1);
+        if (weeksPlayed > 1) {
+          averageRating =
+              ((averageRating * weeksPlayed) - oldRating) / (weeksPlayed - 1);
         } else {
-          oldAverageRating = 0.0;
+          averageRating = 0.0;
         }
 
-        oldWeeksPlayed -= 1;
+        weeksPlayed -= 1;
       }
 
-      final int newWeeksPlayed = oldWeeksPlayed + 1;
-      final int newTotalPoints = oldTotalPoints + playerPoints;
-      final int newWins = oldWins + (playerWon ? 1 : 0);
-      final int newLosses = oldLosses + (playerWon ? 0 : 1);
+      final int newWeeksPlayed = weeksPlayed + 1;
+      final int newTotalPoints = totalPoints + playerPoints;
+      final int newWins = wins + (playerWon ? 1 : 0);
+      final int newLosses = losses + (playerWon ? 0 : 1);
 
       final double newAverageRating =
-          ((oldAverageRating * oldWeeksPlayed) + avgRating) / newWeeksPlayed;
-      double bestRating = avgRating > oldBestRating ? avgRating : oldBestRating;
+          ((averageRating * weeksPlayed) + avgRating) / newWeeksPlayed;
 
-      if (oldWeek != null &&
-          previousRating != null &&
-          previousRating >= oldBestRating &&
-          avgRating < oldBestRating) {
-        // The overwritten week held the previous best rating, and new rating is lower.
-        // Defer best-rating recompute with a cheap top-1 query after transaction.
-        needsBestRatingRecalc = true;
+      if (avgRating > bestRating) {
+        bestRating = avgRating;
       }
 
       transaction.set(weekRef, {
@@ -229,23 +334,5 @@ class FirestoreService {
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     });
-
-    if (needsBestRatingRecalc) {
-      final topWeekSnap = await userRef
-          .collection('weeks')
-          .orderBy('avgRating', descending: true)
-          .limit(1)
-          .get();
-
-      final double recalculatedBest = topWeekSnap.docs.isEmpty
-          ? 0.0
-          : ((topWeekSnap.docs.first.data()['avgRating'] ?? 0.0) as num)
-              .toDouble();
-
-      await statsRef.set({
-        'bestRating': recalculatedBest,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
   }
 }

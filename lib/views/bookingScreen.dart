@@ -34,32 +34,84 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   bool _showingChampionDialog = false;
+  bool _creatingSeason = false;
 
-  void _maybeHandleSeasonSetup(BuildContext context, SimViewModel sim, DraftViewModel draft) {
-    if (sim.seasonStarted || !draft.draftComplete) return;
+  Future<String?> _askForTeamName(BuildContext context) async {
+    final controller = TextEditingController();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || sim.seasonStarted) return;
-
-      if (draft.needsChampionSelection) {
-        if (_showingChampionDialog) return;
-        _showingChampionDialog = true;
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => _ChampionSelectionDialog(draft: draft, sim: sim),
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Name Your Team',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: TextField(
+            controller: controller,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Example: Nightmare',
+              hintStyle: TextStyle(color: Colors.white38),
+              labelText: 'Team Name',
+              labelStyle: TextStyle(color: Colors.white70),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                final name = controller.text.trim();
+                if (name.isNotEmpty) {
+                  Navigator.of(dialogContext).pop(name);
+                }
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
         );
-        _showingChampionDialog = false;
-      }
+      },
+    );
 
-      if (!mounted || sim.seasonStarted || draft.needsChampionSelection) return;
-      sim.initSeason(
-        draft.myRoster,
-        draft.aiRoster,
-        arcadeMode: draft.isArcadeMode,
-      );
-    });
+    controller.dispose();
+    return result;
   }
+
+  String _formatTeamName(String name) {
+    final now = DateTime.now();
+    return 'Team "$name" ${now.month}/${now.day}';
+  }
+
+  void _maybeHandleSeasonSetup(
+  BuildContext context,
+  SimViewModel sim,
+  DraftViewModel draft,
+) {
+  if (sim.seasonStarted || !draft.draftComplete) return;
+
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    if (!mounted || sim.seasonStarted) return;
+
+    if (draft.needsChampionSelection) {
+      if (_showingChampionDialog) return;
+
+      _showingChampionDialog = true;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _ChampionSelectionDialog(
+          draft: draft,
+          sim: sim,
+        ),
+      );
+
+      _showingChampionDialog = false;
+    }
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -68,12 +120,20 @@ class _BookingScreenState extends State<BookingScreen> {
         _maybeHandleSeasonSetup(context, sim, draft);
 
         if (!draft.draftComplete) {
-          return _NoDraftScreen();
-        }
+  return _NoDraftScreen();
+}
 
-        if (sim.seasonOver) {
-          return _SeasonOverScreen(sim: sim);
-        }
+if (!sim.seasonStarted && !draft.needsChampionSelection) {
+  return _TeamNameStartScreen(
+    sim: sim,
+    draft: draft,
+  );
+}
+
+if (sim.seasonOver) {
+  return _SeasonOverScreen(sim: sim, draft: draft);
+}
+
 
         return Scaffold(
           backgroundColor: Colors.black,
@@ -414,7 +474,7 @@ class _ChampionSelectionDialogState extends State<_ChampionSelectionDialog> {
           ],
         ),
       ),
-      actions: [
+            actions: [
         TextButton(
           onPressed: canConfirm
               ? () {
@@ -422,17 +482,14 @@ class _ChampionSelectionDialogState extends State<_ChampionSelectionDialog> {
                     universalChampion: universalChampion!,
                     intercontinentalChampion: intercontinentalChampion!,
                   );
-                  widget.sim.initSeason(
-                    widget.draft.myRoster,
-                    widget.draft.aiRoster,
-                    arcadeMode: widget.draft.isArcadeMode,
-                    matchCostResolver: widget.draft.matchCostFor,
-                  );
+
                   Navigator.pop(context);
                 }
               : null,
-          child: const Text('Confirm',
-              style: TextStyle(fontWeight: FontWeight.w600)),
+          child: const Text(
+            'Confirm',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );
@@ -852,14 +909,139 @@ class _NoDraftScreen extends StatelessWidget {
     );
   }
 }
+class _TeamNameStartScreen extends StatefulWidget {
+  final SimViewModel sim;
+  final DraftViewModel draft;
 
+  const _TeamNameStartScreen({
+    required this.sim,
+    required this.draft,
+  });
+
+  @override
+  State<_TeamNameStartScreen> createState() => _TeamNameStartScreenState();
+}
+
+class _TeamNameStartScreenState extends State<_TeamNameStartScreen> {
+  final TextEditingController teamNameController = TextEditingController();
+  bool isStarting = false;
+
+  String _formatTeamName(String name) {
+    final now = DateTime.now();
+    return 'Team "$name" ${now.month}/${now.day}';
+  }
+
+  Future<void> _startSeason() async {
+    final name = teamNameController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a team name')),
+      );
+      return;
+    }
+
+    setState(() {
+      isStarting = true;
+    });
+
+    await FirestoreService().createNewSeasonFromDraft(
+      teamName: _formatTeamName(name),
+      roster: widget.draft.myRoster,
+    );
+
+    widget.sim.initSeason(
+      widget.draft.myRoster,
+      widget.draft.aiRoster,
+      arcadeMode: widget.draft.isArcadeMode,
+      matchCostResolver: widget.draft.matchCostFor,
+    );
+
+    if (mounted) {
+      setState(() {
+        isStarting = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    teamNameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Name Your Team'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.groups,
+              color: Color(0xFFCC0000),
+              size: 72,
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Name Your Draft Team',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This will appear on your Stats page.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: teamNameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Team Name',
+                hintText: 'Example: Nightmare',
+                labelStyle: TextStyle(color: Colors.white70),
+                hintStyle: TextStyle(color: Colors.white38),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isStarting ? null : _startSeason,
+                child: isStarting
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('START SEASON'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 class _SeasonOverScreen extends StatelessWidget {
   final SimViewModel sim;
-  const _SeasonOverScreen({required this.sim});
+  final DraftViewModel draft;
+
+  const _SeasonOverScreen({
+    required this.sim,
+    required this.draft,
+  });
 
   @override
   Widget build(BuildContext context) {
     final playerWon = sim.playerTotalPoints >= sim.aiTotalPoints;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(title: const Text('Season Over')),
@@ -882,17 +1064,43 @@ class _SeasonOverScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            Text('You  ${sim.playerTotalPoints} pts',
-                style: const TextStyle(color: Colors.white, fontSize: 20)),
-            const SizedBox(height: 6),
-            Text('AI   ${sim.aiTotalPoints} pts',
-                style: const TextStyle(color: Colors.grey, fontSize: 20)),
-            const SizedBox(height: 36),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                  context, '/home', (r) => false),
-              child: const Text('BACK TO HOME'),
+            Text(
+              'You  ${sim.playerTotalPoints} pts',
+              style: const TextStyle(color: Colors.white, fontSize: 20),
             ),
+            const SizedBox(height: 6),
+            Text(
+              'AI   ${sim.aiTotalPoints} pts',
+              style: const TextStyle(color: Colors.grey, fontSize: 20),
+            ),
+            const SizedBox(height: 36),
+
+            ElevatedButton(
+  onPressed: () {
+    draft.restartDraft();
+    sim.resetSeasonState();
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/draft',
+      (route) => false,
+    );
+  },
+  child: const Text('START NEW DRAFT'),
+),
+
+const SizedBox(height: 12),
+
+OutlinedButton(
+  onPressed: () {
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/home',
+      (route) => false,
+    );
+  },
+  child: const Text('BACK TO HOME'),
+),
           ],
         ),
       ),

@@ -112,7 +112,28 @@ class SimViewModel extends ChangeNotifier {
   bool seasonStarted = false;
   bool arcadeMode = false;
   int Function(String matchType) _matchCostResolver = (_) => 0;
+void resetSeasonState() {
+  playerRoster = [];
+  aiRoster = [];
 
+  currentWeek = 1;
+  playerTotalPoints = 0;
+  aiTotalPoints = 0;
+
+  history = [];
+  card = [null, null, null, null];
+  promos = [null, null];
+  rests = [null, null];
+
+  weekResults = [];
+  aiWeekResults = [];
+
+  weekSimulated = false;
+  seasonOver = false;
+  seasonStarted = false;
+
+  notifyListeners();
+}
   void initSeason(
     List<Wrestler> pRoster,
     List<Wrestler> aRoster, {
@@ -142,6 +163,8 @@ class SimViewModel extends ChangeNotifier {
 
   bool get cardFull => card.every((m) => m != null);
   int get slotsBooked => card.where((m) => m != null).length;
+
+  
 
   void syncPlayerRoster(List<Wrestler> roster) {
     playerRoster = List.from(roster);

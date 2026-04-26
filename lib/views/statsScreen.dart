@@ -17,7 +17,10 @@ class _StatsScreenState extends State<StatsScreen> {
 
   bool isLoading = true;
   String errorMessage = '';
-  bool usingLocalStats = false;
+
+  List<Map<String, dynamic>> seasons = [];
+  String? selectedSeasonId;
+
   Map<String, dynamic> currentStats = {};
   List<Map<String, dynamic>> weeklyStats = [];
 
@@ -29,63 +32,55 @@ class _StatsScreenState extends State<StatsScreen> {
 
   Future<void> loadStats() async {
     try {
-      final stats = await _firestoreService.getCurrentStats();
-      final weeks = await _firestoreService.getWeeklyStats();
+      final loadedSeasons = await _firestoreService.getSeasons();
+      final activeId = await _firestoreService.getActiveSeasonId();
 
-      if (!mounted) return;
+      String? seasonToLoad = activeId;
 
-      if (stats == null && weeks.isEmpty) {
-        _loadLocalStats();
-        return;
+      if (seasonToLoad == null && loadedSeasons.isNotEmpty) {
+        seasonToLoad = loadedSeasons.first['seasonId'];
+      }
+
+      Map<String, dynamic> stats = {};
+      List<Map<String, dynamic>> weeks = [];
+
+      if (seasonToLoad != null) {
+        final loadedStats =
+            await _firestoreService.getCurrentStatsForSeason(seasonToLoad);
+        final loadedWeeks =
+            await _firestoreService.getWeeklyStatsForSeason(seasonToLoad);
+
+        stats = loadedStats ?? {};
+        weeks = loadedWeeks;
       }
 
       setState(() {
-        currentStats = stats ?? {};
+        seasons = loadedSeasons;
+        selectedSeasonId = seasonToLoad;
+        currentStats = stats;
         weeklyStats = weeks;
         isLoading = false;
-        usingLocalStats = false;
       });
     } catch (e) {
-      if (!mounted) return;
-      _loadLocalStats();
+      setState(() {
+        errorMessage = 'Failed to load stats';
+        isLoading = false;
+      });
     }
   }
 
-  void _loadLocalStats() {
-    final sim = context.read<SimViewModel>();
-    final wins = sim.history.where((week) => week.playerPoints >= week.aiPoints).length;
-    final losses = sim.history.length - wins;
-    final bestRating = sim.history.isEmpty
-        ? 0.0
-        : sim.history
-            .map((week) => week.avgRating)
-            .reduce((a, b) => a > b ? a : b);
-    final averageRating = sim.history.isEmpty
-        ? 0.0
-        : sim.history.map((week) => week.avgRating).reduce((a, b) => a + b) /
-            sim.history.length;
+  Future<void> switchSeason(String seasonId) async {
+    await _firestoreService.setActiveSeason(seasonId);
+
+    final loadedStats =
+        await _firestoreService.getCurrentStatsForSeason(seasonId);
+    final loadedWeeks =
+        await _firestoreService.getWeeklyStatsForSeason(seasonId);
 
     setState(() {
-      currentStats = {
-        'totalPoints': sim.playerTotalPoints,
-        'wins': wins,
-        'losses': losses,
-        'weeksPlayed': sim.history.length,
-        'bestRating': bestRating,
-        'averageRating': averageRating,
-      };
-      weeklyStats = sim.history
-          .map((week) => {
-                'weekNumber': week.week,
-                'playerPoints': week.playerPoints,
-                'aiPoints': week.aiPoints,
-                'avgRating': week.avgRating,
-                'result': week.playerPoints >= week.aiPoints ? 'W' : 'L',
-              })
-          .toList();
-      usingLocalStats = true;
-      errorMessage = '';
-      isLoading = false;
+      selectedSeasonId = seasonId;
+      currentStats = loadedStats ?? {};
+      weeklyStats = loadedWeeks;
     });
   }
 
@@ -101,11 +96,7 @@ class _StatsScreenState extends State<StatsScreen> {
     if (errorMessage.isNotEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFF111111),
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: const Text('Stats'),
-        ),
+        appBar: AppBar(title: const Text('Stats')),
         body: Center(
           child: Text(
             errorMessage,
@@ -139,6 +130,24 @@ class _StatsScreenState extends State<StatsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            if (seasons.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: const Text(
+                  'No draft season found yet. Complete a draft to create a stat sheet.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              )
+            else
+              _seasonDropdown(),
+
+            const SizedBox(height: 20),
+
             Row(
               children: [
                 Expanded(child: _summaryCard('Points', '$totalPoints')),
@@ -148,7 +157,9 @@ class _StatsScreenState extends State<StatsScreen> {
                 Expanded(child: _summaryCard('Losses', '$losses')),
               ],
             ),
+
             const SizedBox(height: 10),
+
             Row(
               children: [
                 Expanded(child: _summaryCard('Weeks', '$weeksPlayed')),
@@ -168,7 +179,9 @@ class _StatsScreenState extends State<StatsScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 24),
+
             const Text(
               'Weekly History',
               style: TextStyle(
@@ -177,14 +190,9 @@ class _StatsScreenState extends State<StatsScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            if (usingLocalStats) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Showing local session stats. Firebase sync is unavailable.',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-            ],
+
             const SizedBox(height: 12),
+
             if (weeklyStats.isEmpty)
               Container(
                 padding: const EdgeInsets.all(18),
@@ -194,15 +202,49 @@ class _StatsScreenState extends State<StatsScreen> {
                   border: Border.all(color: Colors.white12),
                 ),
                 child: const Text(
-                  'No weekly stats yet. Simulate a week to start tracking.',
+                  'No weekly stats yet. Simulate a week to start tracking this draft.',
                   style: TextStyle(color: Colors.white70),
                 ),
               )
             else
-              ...weeklyStats.map((week) {
-                return _weekTile(week);
-              }),
+              ...weeklyStats.map((week) => _weekTile(week)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _seasonDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedSeasonId,
+          dropdownColor: const Color(0xFF1A1A1A),
+          isExpanded: true,
+          iconEnabledColor: Colors.white,
+          items: seasons.map((season) {
+            final id = season['seasonId'];
+            final teamName = season['teamName'] ?? 'Unnamed Team';
+
+            return DropdownMenuItem<String>(
+              value: id,
+              child: Text(
+                teamName,
+                style: const TextStyle(color: Colors.white),
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              switchSeason(value);
+            }
+          },
         ),
       ),
     );
