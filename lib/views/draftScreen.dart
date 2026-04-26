@@ -44,44 +44,95 @@ class _DraftScreenState extends State<DraftScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<DraftViewModel>();
+Widget build(BuildContext context) {
+  final vm = context.watch<DraftViewModel>();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (vm.lastPickMessage.isNotEmpty) {
-        _showPickToast(context, vm.lastPickMessage);
-      }
-    });
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (vm.lastPickMessage.isNotEmpty) {
+      _showPickToast(context, vm.lastPickMessage);
+    }
+  });
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0a0a0a),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _header(context, vm),
-            _turnBanner(vm),
-            _rosterCounts(vm),
-            if (vm.showEndButton) _endDraftButton(context, vm),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('AVAILABLE WRESTLERS',
-                  style: TextStyle(color: Colors.grey, fontSize: 11,
-                    fontWeight: FontWeight.w600, letterSpacing: 1)),
+  return Scaffold(
+    backgroundColor: const Color(0xFF0a0a0a),
+    body: SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isLandscape = constraints.maxWidth > constraints.maxHeight;
+
+          return Column(
+            children: [
+              _header(context, vm),
+
+              if (!isLandscape) ...[
+                _turnBanner(vm),
+                _rosterCounts(vm),
+                if (vm.showEndButton) _endDraftButton(context, vm),
+              ] else ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(width: 220, child: _turnBanner(vm)),
+                      const SizedBox(width: 10),
+                      SizedBox(width: 260, child: _rosterCounts(vm)),
+                      if (vm.showEndButton) ...[
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 320,
+                          child: _endDraftButton(context, vm),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'AVAILABLE WRESTLERS',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            Expanded(
-              child: vm.draftComplete
-                ? _draftDoneCard(context, vm)
-                : _wrestlerPool(vm),
-            ),
-            _rosterPreviews(vm),
-          ],
-        ),
+
+              Expanded(
+  child: vm.draftComplete
+      ? SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: _draftDoneCard(context, vm),
+        )
+      : _wrestlerPool(vm),
+),
+
+              if (!isLandscape)
+                _rosterPreviews(vm)
+              else
+                SizedBox(
+                  height: 75,
+                  child: SingleChildScrollView(
+                    child: _rosterPreviews(vm),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _header(BuildContext context, DraftViewModel vm) {
     return Container(

@@ -10,7 +10,8 @@ class AppDrawer extends StatelessWidget {
     return Drawer(
       backgroundColor: const Color(0xFF111111),
       child: SafeArea(
-        child: Column(
+        child: ListView( // 🔥 FIX: was Column → now scrollable
+          padding: EdgeInsets.zero,
           children: [
             // Header
             Container(
@@ -31,13 +32,15 @@ class AppDrawer extends StatelessWidget {
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold)),
+                  SizedBox(height: 4),
                   Text('Fantasy Booker',
                       style: TextStyle(color: Colors.white60, fontSize: 13)),
                 ],
               ),
             ),
+
             const SizedBox(height: 8),
-            // Nav items
+
             _NavItem(
               icon: Icons.home,
               label: 'Home',
@@ -68,12 +71,15 @@ class AppDrawer extends StatelessWidget {
               route: '/profile',
               current: current,
             ),
-            const Spacer(),
+
             const Divider(color: Color(0xFF2A2A2A)),
+
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Season Hub',
-                  style: TextStyle(color: Colors.grey[700], fontSize: 11)),
+              child: Text(
+                'Season Hub',
+                style: TextStyle(color: Colors.grey[700], fontSize: 11),
+              ),
             ),
           ],
         ),
@@ -100,22 +106,27 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon,
-          color: _isActive ? const Color(0xFFCC0000) : Colors.white60,
-          size: 22),
-      title: Text(label,
-          style: TextStyle(
-              color: _isActive ? Colors.white : Colors.white70,
-              fontWeight:
-                  _isActive ? FontWeight.bold : FontWeight.normal,
-              fontSize: 15)),
+      leading: Icon(
+        icon,
+        color: _isActive ? const Color(0xFFCC0000) : Colors.white60,
+        size: 22,
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: _isActive ? Colors.white : Colors.white70,
+          fontWeight: _isActive ? FontWeight.bold : FontWeight.normal,
+          fontSize: 15,
+        ),
+      ),
       tileColor: _isActive
-          ? const Color(0xFFCC0000).withValues(alpha: 0.08)
+          ? const Color(0xFFCC0000).withOpacity(0.08) // 🔥 fix deprecated call
           : null,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
       onTap: () {
-        Navigator.pop(context); // close drawer
+        Navigator.pop(context);
         if (!_isActive) {
           Navigator.pushReplacementNamed(context, route);
         }
