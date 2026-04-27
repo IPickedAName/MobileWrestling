@@ -42,7 +42,7 @@ class AppDrawer extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            _SectionTitle('Core Loop'),
+            _SectionTitle('Promotion Circuit'),
 
             _NavItem(
               icon: Icons.home,

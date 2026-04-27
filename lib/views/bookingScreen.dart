@@ -1125,7 +1125,7 @@ class _TeamNameStartScreenState extends State<_TeamNameStartScreen> {
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -6,6 +6,8 @@ import 'appDrawer.dart';
 import '../widgets/champion_badge.dart';
 import '../theme/game_theme.dart';
 
+const Color kTnaBlue = Color(0xFF1E40AF);
+
 String _resultName(Wrestler wrestler) {
   return wrestler.name;
 }
@@ -19,7 +21,6 @@ class ResultsScreen extends StatefulWidget {
 
 class _ResultsScreenState extends State<ResultsScreen> {
   int _step = 0; // 0 = your show, 1 = AI show, 2 = comparison
-  static const Color _tnaBlue = Color(0xFF1E40AF);
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +137,7 @@ class _StepIndicator extends StatelessWidget {
                       Text(labels[i],
                           style: TextStyle(
                               color: active
-                              ? _tnaBlue
+                                ? kTnaBlue
                                   : done
                                       ? Colors.green
                                       : Colors.grey,
@@ -149,7 +150,7 @@ class _StepIndicator extends StatelessWidget {
                       Container(
                         height: 2,
                         color: active
-                          ? _tnaBlue
+                          ? kTnaBlue
                             : done
                                 ? Colors.green
                                 : const Color(0xFF2A2A2A),
@@ -184,7 +185,7 @@ class _SummaryBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _Stat('YOU', '+${summary.playerPoints}', _tnaBlue),
+          _Stat('YOU', '+${summary.playerPoints}', kTnaBlue),
           _Stat('AVG ★', summary.avgRating.toStringAsFixed(2), Colors.amber),
           _Stat('AI', '+${summary.aiPoints}', Colors.white70),
           _Stat('LEAD',
