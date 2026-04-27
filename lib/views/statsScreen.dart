@@ -13,6 +13,7 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   final FirestoreService _firestoreService = FirestoreService();
+  static const Color _tnaBlue = Color(0xFF1E40AF);
 
   bool isLoading = true;
   bool isRepairing = false;
@@ -197,17 +198,24 @@ class _StatsScreenState extends State<StatsScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF111111),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: const Color(0xFF111111),
+        drawer: const AppDrawer(),
+        appBar: AppBar(
+          backgroundColor: _tnaBlue,
+          foregroundColor: Colors.white,
+          title: const Text('Stats'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (errorMessage.isNotEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFF111111),
+        drawer: const AppDrawer(),
         appBar: AppBar(
-          backgroundColor: Colors.black,
+          backgroundColor: _tnaBlue,
           foregroundColor: Colors.white,
           title: const Text('Stats'),
         ),
@@ -258,7 +266,7 @@ class _StatsScreenState extends State<StatsScreen> {
       backgroundColor: const Color(0xFF111111),
       drawer: const AppDrawer(),
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: _tnaBlue,
         foregroundColor: Colors.white,
         title: const Text('Stats'),
         actions: [

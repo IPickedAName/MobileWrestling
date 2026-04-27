@@ -36,6 +36,7 @@ class BookingScreen extends StatefulWidget {
 class _BookingScreenState extends State<BookingScreen> {
   bool _showingChampionDialog = false;
   final bool _creatingSeason = false;
+  static const Color _aewGold = Color(0xFFD4AF37);
 
   Future<String?> _askForTeamName(BuildContext context) async {
     final controller = TextEditingController();
@@ -144,9 +145,9 @@ if (sim.seasonOver) {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Book Your Card',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _aewGold)),
                 Text('Week ${sim.currentWeek} of ${sim.totalWeeks}',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFFE6D7A3))),
               ],
             ),
             actions: [
@@ -902,6 +903,7 @@ class _NoDraftScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      drawer: const AppDrawer(),
       appBar: AppBar(title: const Text('Book Your Card')),
       body: Center(
         child: Column(
@@ -1041,74 +1043,88 @@ class _TeamNameStartScreenState extends State<_TeamNameStartScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Name Your Team'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.groups,
-              color: Color(0xFFCC0000),
-              size: 72,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/indoor_allIN.jpg',
+              fit: BoxFit.cover,
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'Name Your Draft Team',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This will appear on your Stats page.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: teamNameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Team Name',
-                hintText: 'Example: Nightmare',
-                labelStyle: TextStyle(color: Colors.white70),
-                hintStyle: TextStyle(color: Colors.white38),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isStarting ? null : _startSeason,
-                child: isStarting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('START SEASON'),
-              ),
-            ),
-            if (saveFailed) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: isStarting ? null : _retrySave,
-                  child: const Text('RETRY ONLINE SAVE'),
+          ),
+          Positioned.fill(
+            child: Container(color: Colors.black.withValues(alpha: 0.72)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.groups,
+                  color: Color(0xFFD4AF37),
+                  size: 72,
                 ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: isStarting ? null : _startLocally,
-                  child: const Text('CONTINUE OFFLINE'),
+                const SizedBox(height: 18),
+                const Text(
+                  'Name Your Draft Team',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
-          ],
+                const SizedBox(height: 8),
+                const Text(
+                  'This will appear on your Stats page.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: teamNameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Team Name',
+                    hintText: 'Example: Nightmare',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    hintStyle: TextStyle(color: Colors.white38),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isStarting ? null : _startSeason,
+                    child: isStarting
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('START SEASON'),
+                  ),
+                ),
+                if (saveFailed) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: isStarting ? null : _retrySave,
+                      child: const Text('RETRY ONLINE SAVE'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: isStarting ? null : _startLocally,
+                      child: const Text('CONTINUE OFFLINE'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1129,6 +1145,7 @@ class _SeasonOverScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Season Over'),
         automaticallyImplyLeading: false,

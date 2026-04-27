@@ -4,6 +4,7 @@ import '../viewmodels/draft_VM.dart';
 import '../models/wrestler.dart';
 import '../widgets/champion_badge.dart';
 import '../theme/game_theme.dart';
+import 'appDrawer.dart';
 
 class DraftScreen extends StatefulWidget {
   const DraftScreen({super.key});
@@ -14,6 +15,8 @@ class DraftScreen extends StatefulWidget {
 
 class _DraftScreenState extends State<DraftScreen> {
   String _lastShownMessage = '';
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  static const Color _njpwRed = Color(0xFFC8102E);
 
   Color _classColor(String wrestlerClass) {
     switch (wrestlerClass) {
@@ -55,7 +58,9 @@ Widget build(BuildContext context) {
   });
 
   return Scaffold(
+    key: _scaffoldKey,
     backgroundColor: GameTheme.bg,
+    drawer: const AppDrawer(),
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -151,6 +156,11 @@ Widget build(BuildContext context) {
           Row(
             children: [
               GestureDetector(
+                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                child: const Icon(Icons.menu, color: Colors.white70, size: 20),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 18),
               ),
@@ -222,14 +232,14 @@ Widget build(BuildContext context) {
         color: vm.draftComplete
             ? const Color(0xFF133123)
             : vm.isMyTurn
-                ? const Color(0xFFBE123C)
+              ? _njpwRed
                 : const Color(0xFF192131),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: vm.draftComplete
               ? const Color(0xFF4ade80).withOpacity(0.35)
               : vm.isMyTurn
-                  ? const Color(0xFFE11D48).withOpacity(0.35)
+                  ? _njpwRed.withOpacity(0.35)
                   : GameTheme.stroke,
         ),
       ),

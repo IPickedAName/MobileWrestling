@@ -19,6 +19,7 @@ class ResultsScreen extends StatefulWidget {
 
 class _ResultsScreenState extends State<ResultsScreen> {
   int _step = 0; // 0 = your show, 1 = AI show, 2 = comparison
+  static const Color _tnaBlue = Color(0xFF1E40AF);
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +28,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         if (sim.weekResults.isEmpty) {
           return Scaffold(
             backgroundColor: GameTheme.bg,
+            drawer: const AppDrawer(),
             appBar: AppBar(title: const Text('Results')),
             body: const Center(
               child: Text('No results yet', style: TextStyle(color: Colors.grey)),
@@ -134,7 +136,7 @@ class _StepIndicator extends StatelessWidget {
                       Text(labels[i],
                           style: TextStyle(
                               color: active
-                                  ? const Color(0xFFCC0000)
+                              ? _tnaBlue
                                   : done
                                       ? Colors.green
                                       : Colors.grey,
@@ -147,7 +149,7 @@ class _StepIndicator extends StatelessWidget {
                       Container(
                         height: 2,
                         color: active
-                            ? const Color(0xFFCC0000)
+                          ? _tnaBlue
                             : done
                                 ? Colors.green
                                 : const Color(0xFF2A2A2A),
@@ -182,7 +184,7 @@ class _SummaryBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _Stat('YOU', '+${summary.playerPoints}', const Color(0xFFCC0000)),
+          _Stat('YOU', '+${summary.playerPoints}', _tnaBlue),
           _Stat('AVG ★', summary.avgRating.toStringAsFixed(2), Colors.amber),
           _Stat('AI', '+${summary.aiPoints}', Colors.white70),
           _Stat('LEAD',

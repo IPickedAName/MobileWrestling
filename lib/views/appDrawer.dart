@@ -69,6 +69,12 @@ class AppDrawer extends StatelessWidget {
               current: current,
             ),
             _NavItem(
+              icon: Icons.emoji_events,
+              label: 'Leaderboard',
+              route: '/leaderboard',
+              current: current,
+            ),
+            _NavItem(
               icon: Icons.person,
               label: 'Profile',
               route: '/profile',

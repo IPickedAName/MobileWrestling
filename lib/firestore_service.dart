@@ -291,6 +291,12 @@ class FirestoreService {
 
     final bool playerWon = playerPoints >= aiPoints;
 
+    int syncedTotalPoints = 0;
+    int syncedWins = 0;
+    int syncedLosses = 0;
+    int syncedWeeksPlayed = 0;
+    double syncedAverageRating = 0.0;
+
     await db.runTransaction((transaction) async {
       final statsSnap = await transaction.get(statsRef);
       final weekSnap = await transaction.get(weekRef);
@@ -359,6 +365,115 @@ class FirestoreService {
         'averageRating': newAverageRating,
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      syncedTotalPoints = newTotalPoints;
+      syncedWins = newWins;
+      syncedLosses = newLosses;
+      syncedWeeksPlayed = newWeeksPlayed;
+      syncedAverageRating = newAverageRating;
     });
+
+    await syncGlobalLeaderboard(
+      seasonId: seasonId,
+      totalPoints: syncedTotalPoints,
+      wins: syncedWins,
+      losses: syncedLosses,
+      weeksPlayed: syncedWeeksPlayed,
+      averageRating: syncedAverageRating,
+    );
+  }
+
+  Future<void> syncGlobalLeaderboard({
+    required String seasonId,
+    required int totalPoints,
+    required int wins,
+    required int losses,
+    required int weeksPlayed,
+    required double averageRating,
+  }) async {
+    final uid = currentUserId;
+    final db = _db;
+    if (uid == null || db == null) return;
+
+    final userDoc = await db.collection('users').doc(uid).get();
+    final userData = userDoc.data() ?? <String, dynamic>{};
+    final String displayName = (userData['name']?.toString().trim().isNotEmpty ?? false)
+        ? userData['name'].toString().trim()
+        : (userData['email']?.toString().split('@').first ?? 'Booker');
+
+    String teamName = 'Unknown Team';
+    final seasonDoc = await db
+        .collection('users')
+        .doc(uid)
+        .collection('seasons')
+        .doc(seasonId)
+        .get();
+    if (seasonDoc.exists) {
+      final seasonData = seasonDoc.data() ?? <String, dynamic>{};
+      final rawTeam = seasonData['teamName']?.toString().trim();
+      if (rawTeam != null && rawTeam.isNotEmpty) teamName = rawTeam;
+    }
+
+    await db.collection('leaderboard').doc(uid).set({
+      'uid': uid,
+      'displayName': displayName,
+      'teamName': teamName,
+      'seasonId': seasonId,
+      'totalPoints': totalPoints,
+      'wins': wins,
+      'losses': losses,
+      'weeksPlayed': weeksPlayed,
+      'averageRating': averageRating,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Stream<List<Map<String, dynamic>>> watchGlobalLeaderboard({int limit = 50}) {
+    final db = _db;
+    if (db == null) return Stream.value([]);
+
+    return db
+        .collection('leaderboard')
+        .orderBy('totalPoints', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) {
+              final data = d.data();
+              data['uid'] = d.id;
+              return data;
+            }).toList());
+  }
+
+  Future<Map<String, dynamic>?> getMyLeaderboardStanding() async {
+    final uid = currentUserId;
+    final db = _db;
+    if (uid == null || db == null) return null;
+
+    final snap = await db
+        .collection('leaderboard')
+        .orderBy('totalPoints', descending: true)
+        .get();
+
+    final entries = snap.docs.map((d) {
+      final data = d.data();
+      data['uid'] = d.id;
+      return data;
+    }).toList();
+
+    entries.sort((a, b) {
+      final p = _toInt(b['totalPoints']).compareTo(_toInt(a['totalPoints']));
+      if (p != 0) return p;
+      final w = _toInt(b['wins']).compareTo(_toInt(a['wins']));
+      if (w != 0) return w;
+      return _toDouble(b['averageRating']).compareTo(_toDouble(a['averageRating']));
+    });
+
+    final index = entries.indexWhere((e) => e['uid'] == uid);
+    if (index == -1) return null;
+
+    final me = Map<String, dynamic>.from(entries[index]);
+    me['rank'] = index + 1;
+    me['totalPlayers'] = entries.length;
+    return me;
   }
 }

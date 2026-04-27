@@ -13,6 +13,7 @@ import 'views/bookingScreen.dart';
 import 'views/resultsScreen.dart';
 import 'views/statsScreen.dart';
 import 'views/profileScreen.dart';
+import 'views/leaderboardScreen.dart';
 import 'theme/game_theme.dart';
 
 void main() async {
@@ -64,6 +65,7 @@ class WrestlerApp extends StatelessWidget {
         '/results': (context) => const ResultsScreen(),
         '/stats':   (context) => const StatsScreen(),
         '/profile': (context) => const ProfileScreen(),
+        '/leaderboard': (context) => const LeaderboardScreen(),
       },
     );
   }
