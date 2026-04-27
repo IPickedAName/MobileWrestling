@@ -60,49 +60,48 @@ class _BookingSimulateBarState extends State<BookingSimulateBar> {
     return Container(
       color: GameTheme.panel,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: [
-          Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 430;
+          final totalCost = draft.cardTotalCost(sim.card);
+
+          final leftInfo = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('${sim.slotsBooked}/4 booked',
                   style: const TextStyle(color: Colors.grey, fontSize: 13)),
-              Builder(builder: (context) {
-                final totalCost = draft.cardTotalCost(sim.card);
-                return totalCost > 0
-                    ? Text('Card cost: -${DraftViewModel.toM(totalCost)}',
-                        style: const TextStyle(
-                            color: Color(0xFFfb923c),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600))
-                    : const SizedBox.shrink();
-              }),
+              if (totalCost > 0)
+                Text('Card cost: -${DraftViewModel.toM(totalCost)}',
+                    style: const TextStyle(
+                        color: Color(0xFFfb923c),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600)),
             ],
-          ),
-          const Spacer(),
-          OutlinedButton(
+          );
+
+          final autoBookButton = OutlinedButton(
             onPressed: sim.seasonStarted && !sim.weekSimulated && !isSaving
                 ? () => sim.autoBookCard()
                 : null,
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white24),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             ),
             child: const Text('AUTO BOOK',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-          const SizedBox(width: 10),
-          ElevatedButton(
+          );
+
+          final simulateButton = ElevatedButton(
             onPressed: sim.cardFull && !isSaving
                 ? () => _simulateAndSave(context)
                 : null,
             style: ElevatedButton.styleFrom(
               backgroundColor:
                   sim.cardFull ? const Color(0xFFCC0000) : Colors.grey[850],
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
@@ -114,12 +113,42 @@ class _BookingSimulateBarState extends State<BookingSimulateBar> {
                         strokeWidth: 2, color: Colors.white),
                   )
                 : const Text('SIMULATE WEEK',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
                         fontSize: 13)),
-          ),
-        ],
+          );
+
+          if (compact) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                leftInfo,
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: autoBookButton),
+                    const SizedBox(width: 10),
+                    Expanded(child: simulateButton),
+                  ],
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: leftInfo),
+              const SizedBox(width: 12),
+              autoBookButton,
+              const SizedBox(width: 10),
+              simulateButton,
+            ],
+          );
+        },
       ),
     );
   }
