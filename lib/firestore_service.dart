@@ -183,6 +183,15 @@ class FirestoreService {
       'activeSeasonId': seasonRef.id,
     }, SetOptions(merge: true));
 
+    await syncGlobalLeaderboard(
+      seasonId: seasonRef.id,
+      totalPoints: 0,
+      wins: 0,
+      losses: 0,
+      weeksPlayed: 0,
+      averageRating: 0.0,
+    );
+
     return seasonRef.id;
   }
 
@@ -426,6 +435,25 @@ class FirestoreService {
       'averageRating': averageRating,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> syncActiveSeasonToLeaderboard() async {
+    final uid = currentUserId;
+    final db = _db;
+    if (uid == null || db == null) return;
+
+    final seasonId = await getActiveSeasonId();
+    if (seasonId == null || seasonId.isEmpty) return;
+
+    final stats = await getCurrentStatsForSeason(seasonId) ?? <String, dynamic>{};
+    await syncGlobalLeaderboard(
+      seasonId: seasonId,
+      totalPoints: _toInt(stats['totalPoints']),
+      wins: _toInt(stats['wins']),
+      losses: _toInt(stats['losses']),
+      weeksPlayed: _toInt(stats['weeksPlayed']),
+      averageRating: _toDouble(stats['averageRating']),
+    );
   }
 
   Stream<List<Map<String, dynamic>>> watchGlobalLeaderboard({int limit = 50}) {

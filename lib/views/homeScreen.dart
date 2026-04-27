@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../auth_viewmodel.dart';
 import '../firestore_service.dart';
 import '../viewmodels/draft_VM.dart';
+import '../viewmodels/simVM.dart';
 import '../theme/game_theme.dart';
 import 'appDrawer.dart';
 
@@ -246,6 +247,8 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<void> _logout(BuildContext context) async {
+    context.read<DraftViewModel>().restartDraft();
+    context.read<SimViewModel>().resetSeasonState();
     final auth = AuthViewModel();
     await auth.logout();
     if (!context.mounted) return;

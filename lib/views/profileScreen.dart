@@ -199,14 +199,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Color(0xFF7F1D1D),
-                  Color(0xFF111827),
+                  Color(0xFF8B0D18),
+                  Color(0xFF173256),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFF3B1A26)),
+              border: Border.all(color: const Color(0xFFB8922F)),
             ),
             child: Column(
               children: [
@@ -216,15 +216,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       radius: 62,
                       backgroundColor: Colors.black,
                       backgroundImage: profilePicUrl.isNotEmpty
-                          ? NetworkImage(profilePicUrl)
-                          : null,
-                      child: profilePicUrl.isEmpty
-                          ? const Icon(
-                              Icons.person,
-                              size: 62,
-                              color: Colors.white,
-                            )
-                          : null,
+                          ? NetworkImage(profilePicUrl) as ImageProvider
+                          : const AssetImage('assets/logo.png'),
                     ),
                     Positioned(
                       right: 0,
@@ -233,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onTap: isUploading ? null : pickProfileImage,
                         child: CircleAvatar(
                           radius: 20,
-                          backgroundColor: Colors.redAccent,
+                          backgroundColor: GameTheme.accent,
                           child: isUploading
                               ? const SizedBox(
                                   height: 18,

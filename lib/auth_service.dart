@@ -24,6 +24,7 @@ class AuthService {
           uid: user.uid,
           email: user.email ?? email.trim(),
         );
+        await _firestoreService.syncActiveSeasonToLeaderboard();
       }
 
       return user;
@@ -51,6 +52,7 @@ class AuthService {
           uid: user.uid,
           email: user.email ?? email.trim(),
         );
+        await _firestoreService.syncActiveSeasonToLeaderboard();
       }
 
       return user;

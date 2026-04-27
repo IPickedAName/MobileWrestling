@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 class GameTheme {
-  static const Color bg = Color(0xFF080A10);
-  static const Color panel = Color(0xFF111522);
-  static const Color panelSoft = Color(0xFF171C2B);
-  static const Color stroke = Color(0xFF2A3145);
+  static const Color bg = Color(0xFF0D1420);
+  static const Color panel = Color(0xFF16202E);
+  static const Color panelSoft = Color(0xFF1D2A3B);
+  static const Color stroke = Color(0xFF31445C);
 
-  static const Color accent = Color(0xFFE11D48);
-  static const Color accentAlt = Color(0xFFF97316);
+  static const Color accent = Color(0xFFC1121F);
+  static const Color accentAlt = Color(0xFFD4AF37);
+  static const Color accentBlue = Color(0xFF2563EB);
   static const Color ok = Color(0xFF22C55E);
   static const Color warn = Color(0xFFFACC15);
 
@@ -29,7 +30,7 @@ class GameTheme {
       canvasColor: bg,
       fontFamily: 'Verdana',
       appBarTheme: const AppBarTheme(
-        backgroundColor: bg,
+        backgroundColor: Color(0xFF101826),
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
@@ -78,7 +79,7 @@ class GameTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
-          side: const BorderSide(color: stroke),
+          side: const BorderSide(color: accentBlue),
           minimumSize: const Size(0, 46),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(
@@ -90,7 +91,7 @@ class GameTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: panelSoft,
-        selectedColor: const Color(0xFF2B3550),
+        selectedColor: const Color(0xFF243B63),
         disabledColor: const Color(0xFF1A1F2D),
         side: const BorderSide(color: stroke),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -110,7 +111,7 @@ class GameTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: accent, width: 1.4),
+          borderSide: const BorderSide(color: accentAlt, width: 1.4),
         ),
         hintStyle: const TextStyle(color: Color(0xFF8B95A7)),
       ),

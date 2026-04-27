@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../auth_viewmodel.dart';
+import '../viewmodels/draft_VM.dart';
+import '../viewmodels/simVM.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -52,6 +55,10 @@ class _LoginScreenState extends State<LoginScreen>
         await auth.register(_emailController.text, _passwordController.text);
       } else {
         await auth.login(_emailController.text, _passwordController.text);
+      }
+      if (mounted) {
+        context.read<DraftViewModel>().restartDraft();
+        context.read<SimViewModel>().resetSeasonState();
       }
       if (mounted) Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {

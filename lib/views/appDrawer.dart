@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../firestore_service.dart';
 import '../theme/game_theme.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -19,23 +20,88 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF7F1D1D), Color(0xFF111827)],
+                  colors: [Color(0xFF8B0D18), Color(0xFF173256)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('WRESTLER HQ',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6)),
-                  SizedBox(height: 4),
-                  Text('Fantasy Booker Control Room',
-                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset('assets/logo.png', fit: BoxFit.cover),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('WRESTLER HQ',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6)),
+                            SizedBox(height: 4),
+                            Text('Fantasy Booker Control Room',
+                                style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<Map<String, dynamic>?>(
+                    future: FirestoreService().getProfile(),
+                    builder: (context, snapshot) {
+                      final profile = snapshot.data ?? const <String, dynamic>{};
+                      final name = (profile['name']?.toString().trim().isNotEmpty ?? false)
+                          ? profile['name'].toString().trim()
+                          : 'Guest Booker';
+                      final email = profile['email']?.toString() ?? 'Local session';
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE0B84B).withValues(alpha: 0.45)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.verified_user, color: Color(0xFFE0B84B), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                                  Text(email,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -143,12 +209,12 @@ class _NavItem extends StatelessWidget {
           width: 30,
           height: 30,
           decoration: BoxDecoration(
-            color: (_isActive ? GameTheme.accent : Colors.white).withOpacity(0.12),
+            color: (_isActive ? GameTheme.accentAlt : Colors.white).withOpacity(0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             icon,
-            color: _isActive ? GameTheme.accent : Colors.white70,
+            color: _isActive ? GameTheme.accentAlt : Colors.white70,
             size: 18,
           ),
         ),
@@ -160,11 +226,11 @@ class _NavItem extends StatelessWidget {
             fontSize: 14,
           ),
         ),
-        tileColor: _isActive ? const Color(0xFF1C2335) : const Color(0xFF111522),
+        tileColor: _isActive ? const Color(0xFF22324B) : GameTheme.panel,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: _isActive ? GameTheme.accent.withOpacity(0.35) : GameTheme.stroke,
+            color: _isActive ? GameTheme.accentAlt.withOpacity(0.45) : GameTheme.stroke,
           ),
         ),
         onTap: () {
