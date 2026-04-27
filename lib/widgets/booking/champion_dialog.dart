@@ -41,10 +41,11 @@ class _ChampionSelectionDialogState extends State<ChampionSelectionDialog> {
 
     return AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: const Text('Assign Your Champions',
           style: TextStyle(color: Colors.white)),
-      content: SizedBox(
-        width: double.maxFinite,
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -60,6 +61,7 @@ class _ChampionSelectionDialogState extends State<ChampionSelectionDialog> {
               const SizedBox(height: 6),
               DropdownButtonFormField<Wrestler>(
                 initialValue: universalChampion,
+                isExpanded: true,
                 dropdownColor: const Color(0xFF2A2A2A),
                 decoration: _champFieldDecoration(),
                 items: roster
@@ -78,6 +80,7 @@ class _ChampionSelectionDialogState extends State<ChampionSelectionDialog> {
               const SizedBox(height: 6),
               DropdownButtonFormField<Wrestler>(
                 initialValue: intercontinentalChampion,
+                isExpanded: true,
                 dropdownColor: const Color(0xFF2A2A2A),
                 decoration: _champFieldDecoration(),
                 items: roster

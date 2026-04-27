@@ -71,10 +71,15 @@ class _BookingScreenState extends State<BookingScreen> {
             leading: AppNav.backButton(context),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Text('Book Your Card',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _aewGold)),
                 Text('Week ${sim.currentWeek} of ${sim.totalWeeks}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 11, color: Color(0xFFE6D7A3))),
               ],
             ),

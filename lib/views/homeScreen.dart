@@ -363,14 +363,14 @@ class HomeScreen extends StatelessWidget {
       drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Season Hub'),
-        leading: IconButton(
-          tooltip: 'Sign out',
-          icon: const Icon(Icons.logout),
-          onPressed: () => _logout(context),
-        ),
+        leading: AppNav.backButton(context, fallbackRoute: '/welcome'),
         actions: [
           AppNav.menuButton(),
-          AppNav.backButton(context, fallbackRoute: '/welcome'),
+          IconButton(
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: () => _logout(context),
+          ),
         ],
       ),
       body: ListView(
