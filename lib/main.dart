@@ -13,6 +13,7 @@ import 'views/bookingScreen.dart';
 import 'views/resultsScreen.dart';
 import 'views/statsScreen.dart';
 import 'views/profileScreen.dart';
+import 'theme/game_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,26 +51,7 @@ class WrestlerApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'wRESTler Fantasy Booker',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFCC0000),
-          secondary: Color(0xFFCC0000),
-        ),
-        fontFamily: 'Arial',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFFCC0000),
-            foregroundColor: Colors.white,
-          ),
-        ),
-      ),
+      theme: GameTheme.buildTheme(),
 
       initialRoute: '/welcome',
 

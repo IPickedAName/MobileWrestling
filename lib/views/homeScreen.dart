@@ -3,19 +3,121 @@ import 'package:provider/provider.dart';
 import '../auth_viewmodel.dart';
 import '../firestore_service.dart';
 import '../viewmodels/draft_VM.dart';
+import '../theme/game_theme.dart';
 import 'appDrawer.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          color: Color(0xFF95A0B3),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
+  Widget _hero(DraftViewModel vm) {
+    final locked = vm.myRoster.isNotEmpty || vm.draftComplete;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF3B1A26)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/pyro_entrance.jpg',
+                fit: BoxFit.cover,
+              ),
+            ),
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0x66000000), Color(0xCC0B1220)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Build Your Next Promotion Run',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    locked
+                        ? 'Draft is in progress or complete. Restart draft to change setup options.'
+                        : 'Pick your mode and budget first, then start drafting your roster.',
+                    style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _pill('Mode: ${vm.gameModeLabel}', vm.isArcadeMode ? GameTheme.warn : Colors.white70),
+                      _pill('Budget: ${DraftViewModel.toM(vm.startingBudget)}', GameTheme.ok),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pill(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1220).withOpacity(0.65),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
   Widget _modePanel(BuildContext context, DraftViewModel vm) {
     final locked = vm.draftComplete;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF171717),
+        color: GameTheme.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: vm.isArcadeMode ? const Color(0xFFfacc15) : Colors.white12),
+        border: Border.all(color: vm.isArcadeMode ? const Color(0xFFfacc15).withOpacity(0.55) : GameTheme.stroke),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,11 +185,11 @@ class HomeScreen extends StatelessWidget {
   Widget _budgetPanel(BuildContext context, DraftViewModel vm) {
     final locked = vm.myRoster.isNotEmpty || vm.draftComplete;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF171717),
+        color: GameTheme.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: GameTheme.stroke),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,9 +266,9 @@ class HomeScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF171717),
+          color: GameTheme.panel,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: GameTheme.stroke),
         ),
         child: Row(
           children: [
@@ -203,15 +305,59 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Widget _uploadUtilityCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1522),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: GameTheme.stroke),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_upload, color: Color(0xFFF59E0B)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Admin Utility',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Upload wrestlers JSON to Firestore (one-time setup)',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton(
+            onPressed: () async {
+              await FirestoreService().uploadWrestlersFromJson();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Wrestlers uploaded to Firestore')),
+                );
+              }
+            },
+            child: const Text('UPLOAD'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = context.watch<DraftViewModel>();
+    final setupLocked = draft.myRoster.isNotEmpty || draft.draftComplete;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: GameTheme.bg,
       drawer: const AppDrawer(),
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
         title: const Text('Season Hub'),
         actions: [
           IconButton(
@@ -223,40 +369,25 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8B0000), Color(0xFF1A1A1A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome Back, Booker',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Manage your roster, build your card, and dominate the season.',
-                  style: TextStyle(color: Colors.white70, fontSize: 15),
-                ),
-              ],
-            ),
-          ),
+          _hero(draft),
           const SizedBox(height: 20),
+
+          _sectionLabel('Game Setup'),
           _modePanel(context, draft),
           const SizedBox(height: 14),
           _budgetPanel(context, draft),
+          if (!setupLocked)
+            const Padding(
+              padding: EdgeInsets.only(top: 8, left: 2),
+              child: Text(
+                'Setup unlocks your economy style before draft. Once picks start, setup locks.',
+                style: TextStyle(color: Color(0xFF95A0B3), fontSize: 12),
+              ),
+            ),
+
           const SizedBox(height: 14),
+
+          _sectionLabel('Core Loop'),
           _homeCard(
             context: context,
             icon: Icons.groups,
@@ -292,22 +423,11 @@ class HomeScreen extends StatelessWidget {
             color: Colors.blueAccent,
             onTap: () => Navigator.pushNamed(context, '/profile'),
           ),
+
           const SizedBox(height: 14),
-          _homeCard(
-            context: context,
-            icon: Icons.cloud_upload,
-            title: 'Upload Wrestlers to Firestore',
-            subtitle: 'Run once to seed Firebase from your JSON',
-            color: Colors.orangeAccent,
-            onTap: () async {
-              await FirestoreService().uploadWrestlersFromJson();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Wrestlers uploaded to Firestore')),
-                );
-              }
-            },
-          ),
+
+          _sectionLabel('Utilities'),
+          _uploadUtilityCard(context),
         ],
       ),
     );

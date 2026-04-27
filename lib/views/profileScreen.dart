@@ -3,6 +3,7 @@ import '../firestore_service.dart';
 import 'appDrawer.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import '../theme/game_theme.dart';
 
 
 class ProfileScreen extends StatefulWidget {
@@ -168,7 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF111111),
+        backgroundColor: GameTheme.bg,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -179,11 +180,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final String profilePicUrl = profile?['profilePicUrl'] ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: GameTheme.bg,
       drawer: const AppDrawer(),
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
         title: const Text('Profile'),
         actions: [
           IconButton(
@@ -200,14 +199,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Color(0xFF8B0000),
-                  Color(0xFF1A1A1A),
+                  Color(0xFF7F1D1D),
+                  Color(0xFF111827),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: const Color(0xFF3B1A26)),
             ),
             child: Column(
               children: [
@@ -280,9 +279,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
+              color: GameTheme.panel,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: GameTheme.stroke),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,9 +310,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
+              color: GameTheme.panel,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: GameTheme.stroke),
             ),
             child: const Row(
               children: [

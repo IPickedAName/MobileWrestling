@@ -6,6 +6,7 @@ import '../viewmodels/draft_VM.dart';
 import 'appDrawer.dart';
 import '../widgets/champion_badge.dart';
 import '../firestore_service.dart';
+import '../theme/game_theme.dart';
 
 String _nameWithChampionTag(Wrestler wrestler) {
   return wrestler.name;
@@ -34,7 +35,7 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   bool _showingChampionDialog = false;
-  bool _creatingSeason = false;
+  final bool _creatingSeason = false;
 
   Future<String?> _askForTeamName(BuildContext context) async {
     final controller = TextEditingController();
@@ -136,7 +137,7 @@ if (sim.seasonOver) {
 
 
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: GameTheme.bg,
           drawer: const AppDrawer(),
           appBar: AppBar(
             title: Column(
@@ -225,7 +226,13 @@ if (sim.seasonOver) {
               _ScoreBar(playerPts: sim.playerTotalPoints, aiPts: sim.aiTotalPoints),
               Container(
                 width: double.infinity,
-                color: const Color(0xFF161616),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF131A29), Color(0xFF0F1422)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,7 +530,7 @@ class _ScoreBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF111111),
+      color: GameTheme.panel,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -531,7 +538,7 @@ class _ScoreBar extends StatelessWidget {
           Column(children: [
             Text('$playerPts',
                 style: const TextStyle(
-                    color: Color(0xFFCC0000), fontSize: 22, fontWeight: FontWeight.bold)),
+                    color: Color(0xFFE11D48), fontSize: 22, fontWeight: FontWeight.bold)),
             const Text('YOU', style: TextStyle(color: Colors.grey, fontSize: 11)),
           ]),
           const Text('VS', style: TextStyle(color: Colors.grey, fontSize: 14)),
@@ -584,8 +591,8 @@ class _SlotCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(12),
+          color: GameTheme.panel,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _posColor.withValues(alpha: 0.4)),
         ),
         child: Column(
@@ -595,7 +602,7 @@ class _SlotCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: _posColor.withValues(alpha: 0.12),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
               ),
               child: Row(
                 children: [
@@ -737,7 +744,11 @@ class _Tag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white12),
+      ),
       child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
     );
   }
@@ -814,7 +825,7 @@ class _SimulateBarState extends State<_SimulateBar> {
     final draft = widget.draft;
 
     return Container(
-      color: const Color(0xFF0D0D0D),
+      color: GameTheme.panel,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
@@ -827,7 +838,7 @@ class _SimulateBarState extends State<_SimulateBar> {
                 final totalCost = draft.cardTotalCost(sim.card);
                 return totalCost > 0
                     ? Text('Card cost: -${DraftViewModel.toM(totalCost)}',
-                        style: const TextStyle(color: Color(0xFFfb923c), fontSize: 11))
+                        style: const TextStyle(color: Color(0xFFfb923c), fontSize: 11, fontWeight: FontWeight.w600))
                     : const SizedBox.shrink();
               }),
             ],
@@ -927,10 +938,36 @@ class _TeamNameStartScreen extends StatefulWidget {
 class _TeamNameStartScreenState extends State<_TeamNameStartScreen> {
   final TextEditingController teamNameController = TextEditingController();
   bool isStarting = false;
+  bool saveFailed = false;
+  String? lastSaveError;
 
   String _formatTeamName(String name) {
     final now = DateTime.now();
     return 'Team "$name" ${now.month}/${now.day}';
+  }
+
+  void _startLocally() {
+    widget.sim.initSeason(
+      widget.draft.myRoster,
+      widget.draft.aiRoster,
+      arcadeMode: widget.draft.isArcadeMode,
+      matchCostResolver: widget.draft.matchCostFor,
+    );
+  }
+
+  Future<bool> _saveSeasonOnline(String teamName) async {
+    try {
+      await FirestoreService()
+          .createNewSeasonFromDraft(
+            teamName: _formatTeamName(teamName),
+            roster: widget.draft.myRoster,
+          )
+          .timeout(const Duration(seconds: 12));
+      return true;
+    } catch (e) {
+      lastSaveError = e.toString();
+      return false;
+    }
   }
 
   Future<void> _startSeason() async {
@@ -945,25 +982,53 @@ class _TeamNameStartScreenState extends State<_TeamNameStartScreen> {
 
     setState(() {
       isStarting = true;
+      saveFailed = false;
+      lastSaveError = null;
     });
 
-    await FirestoreService().createNewSeasonFromDraft(
-      teamName: _formatTeamName(name),
-      roster: widget.draft.myRoster,
-    );
+    final saved = await _saveSeasonOnline(name);
 
-    widget.sim.initSeason(
-      widget.draft.myRoster,
-      widget.draft.aiRoster,
-      arcadeMode: widget.draft.isArcadeMode,
-      matchCostResolver: widget.draft.matchCostFor,
-    );
+    if (!mounted) return;
+    setState(() {
+      isStarting = false;
+      saveFailed = !saved;
+    });
 
-    if (mounted) {
-      setState(() {
-        isStarting = false;
-      });
+    if (saved) {
+      _startLocally();
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Could not save season online: ${lastSaveError ?? 'unknown error'}')),
+    );
+  }
+
+  Future<void> _retrySave() async {
+    final name = teamNameController.text.trim();
+    if (name.isEmpty) return;
+
+    setState(() {
+      isStarting = true;
+      lastSaveError = null;
+    });
+
+    final saved = await _saveSeasonOnline(name);
+
+    if (!mounted) return;
+    setState(() {
+      isStarting = false;
+      saveFailed = !saved;
+    });
+
+    if (saved) {
+      _startLocally();
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Still failed to save: ${lastSaveError ?? 'unknown error'}')),
+    );
   }
 
   @override
@@ -1025,6 +1090,24 @@ class _TeamNameStartScreenState extends State<_TeamNameStartScreen> {
                     : const Text('START SEASON'),
               ),
             ),
+            if (saveFailed) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: isStarting ? null : _retrySave,
+                  child: const Text('RETRY ONLINE SAVE'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: isStarting ? null : _startLocally,
+                  child: const Text('CONTINUE OFFLINE'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1046,65 +1129,85 @@ class _SeasonOverScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(title: const Text('Season Over')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              playerWon ? Icons.emoji_events : Icons.sentiment_dissatisfied,
-              color: playerWon ? Colors.amber : Colors.grey,
-              size: 72,
+      appBar: AppBar(
+        title: const Text('Season Over'),
+        automaticallyImplyLeading: false,
+      ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/indoor_allIN.jpg',
+              fit: BoxFit.cover,
             ),
-            const SizedBox(height: 16),
-            Text(
-              playerWon ? 'YOU WIN THE SEASON!' : 'AI WINS THE SEASON',
-              style: TextStyle(
-                color: playerWon ? const Color(0xFFCC0000) : Colors.grey,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.72),
             ),
-            const SizedBox(height: 28),
-            Text(
-              'You  ${sim.playerTotalPoints} pts',
-              style: const TextStyle(color: Colors.white, fontSize: 20),
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  playerWon ? Icons.emoji_events : Icons.sentiment_dissatisfied,
+                  color: playerWon ? Colors.amber : Colors.grey,
+                  size: 72,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  playerWon ? 'YOU WIN THE SEASON!' : 'AI WINS THE SEASON',
+                  style: TextStyle(
+                    color: playerWon ? const Color(0xFFCC0000) : Colors.grey,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  'You  ${sim.playerTotalPoints} pts',
+                  style: const TextStyle(color: Colors.white, fontSize: 20),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'AI   ${sim.aiTotalPoints} pts',
+                  style: const TextStyle(color: Colors.grey, fontSize: 20),
+                ),
+                const SizedBox(height: 36),
+
+                ElevatedButton(
+      onPressed: () {
+        draft.restartDraft();
+        sim.resetSeasonState();
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/home',
+          (route) => false,
+        );
+      },
+      child: const Text('NEW GAME SETUP'),
+    ),
+
+    const SizedBox(height: 12),
+
+    OutlinedButton(
+      onPressed: () {
+        draft.restartDraft();
+        sim.resetSeasonState();
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/home',
+          (route) => false,
+        );
+      },
+      child: const Text('BACK TO HOME'),
+    ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              'AI   ${sim.aiTotalPoints} pts',
-              style: const TextStyle(color: Colors.grey, fontSize: 20),
-            ),
-            const SizedBox(height: 36),
-
-            ElevatedButton(
-  onPressed: () {
-    draft.restartDraft();
-    sim.resetSeasonState();
-
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/draft',
-      (route) => false,
-    );
-  },
-  child: const Text('START NEW DRAFT'),
-),
-
-const SizedBox(height: 12),
-
-OutlinedButton(
-  onPressed: () {
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/home',
-      (route) => false,
-    );
-  },
-  child: const Text('BACK TO HOME'),
-),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

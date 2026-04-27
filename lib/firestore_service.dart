@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import '../models/wrestler.dart';
 import 'dart:io';
@@ -10,10 +9,23 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 
 class FirestoreService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseFirestore? get _db {
+    try {
+      return FirebaseFirestore.instance;
+    } catch (_) {
+      return null;
+    }
+  }
 
-  String? get currentUserId => _auth.currentUser?.uid;
+  FirebaseAuth? get _auth {
+    try {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? get currentUserId => _auth?.currentUser?.uid;
 
   int _toInt(dynamic value) {
     if (value == null) return 0;
@@ -30,7 +42,8 @@ class FirestoreService {
   }
   Future<String> uploadProfileImage(File imageFile) async {
   final uid = currentUserId;
-  if (uid == null) return '';
+  final db = _db;
+  if (uid == null || db == null) return '';
 
   final fileName = DateTime.now().millisecondsSinceEpoch.toString();
 
@@ -47,7 +60,7 @@ class FirestoreService {
 
   final url = await uploadTask.ref.getDownloadURL();
 
-  await _db.collection('users').doc(uid).set({
+  await db.collection('users').doc(uid).set({
     'profilePicUrl': url,
     'updatedAt': FieldValue.serverTimestamp(),
   }, SetOptions(merge: true));
@@ -55,14 +68,16 @@ class FirestoreService {
   return url;
 }
   Future<void> uploadWrestlersFromJson() async {
+    final db = _db;
+    if (db == null) return;
     final String jsonString =
         await rootBundle.loadString('assets/wrestlers.json');
 
     final List<dynamic> jsonData = json.decode(jsonString);
-    final batch = _db.batch();
+    final batch = db.batch();
 
     for (final wrestler in jsonData) {
-      final docRef = _db.collection('wrestlers').doc(wrestler['name']);
+      final docRef = db.collection('wrestlers').doc(wrestler['name']);
       batch.set(docRef, wrestler);
     }
 
@@ -73,7 +88,9 @@ class FirestoreService {
     required String uid,
     required String email,
   }) async {
-    final userRef = _db.collection('users').doc(uid);
+    final db = _db;
+    if (db == null) return;
+    final userRef = db.collection('users').doc(uid);
     final userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -90,9 +107,10 @@ class FirestoreService {
 
   Future<Map<String, dynamic>?> getProfile() async {
     final uid = currentUserId;
-    if (uid == null) return null;
+    final db = _db;
+    if (uid == null || db == null) return null;
 
-    final doc = await _db.collection('users').doc(uid).get();
+    final doc = await db.collection('users').doc(uid).get();
     return doc.data();
   }
 
@@ -102,9 +120,10 @@ class FirestoreService {
     required String profilePicUrl,
   }) async {
     final uid = currentUserId;
-    if (uid == null) return;
+    final db = _db;
+    if (uid == null || db == null) return;
 
-    await _db.collection('users').doc(uid).set({
+    await db.collection('users').doc(uid).set({
       'name': name,
       'bio': bio,
       'profilePicUrl': profilePicUrl,
@@ -117,9 +136,10 @@ class FirestoreService {
     required List<Wrestler> roster,
   }) async {
     final uid = currentUserId;
-    if (uid == null) return '';
+    final db = _db;
+    if (uid == null || db == null) return '';
 
-    final userRef = _db.collection('users').doc(uid);
+    final userRef = db.collection('users').doc(uid);
     final seasonRef = userRef.collection('seasons').doc();
 
     final rosterData = roster.map((w) {
@@ -168,9 +188,10 @@ class FirestoreService {
 
   Future<String?> getActiveSeasonId() async {
     final uid = currentUserId;
-    if (uid == null) return null;
+    final db = _db;
+    if (uid == null || db == null) return null;
 
-    final userDoc = await _db.collection('users').doc(uid).get();
+    final userDoc = await db.collection('users').doc(uid).get();
     final data = userDoc.data();
 
     final activeSeasonId = data?['activeSeasonId'];
@@ -184,9 +205,10 @@ class FirestoreService {
 
   Future<List<Map<String, dynamic>>> getSeasons() async {
     final uid = currentUserId;
-    if (uid == null) return [];
+    final db = _db;
+    if (uid == null || db == null) return [];
 
-    final snapshot = await _db
+    final snapshot = await db
         .collection('users')
         .doc(uid)
         .collection('seasons')
@@ -202,9 +224,10 @@ class FirestoreService {
 
   Future<void> setActiveSeason(String seasonId) async {
     final uid = currentUserId;
-    if (uid == null) return;
+    final db = _db;
+    if (uid == null || db == null) return;
 
-    await _db.collection('users').doc(uid).set({
+    await db.collection('users').doc(uid).set({
       'activeSeasonId': seasonId,
     }, SetOptions(merge: true));
   }
@@ -213,9 +236,10 @@ class FirestoreService {
     String seasonId,
   ) async {
     final uid = currentUserId;
-    if (uid == null) return null;
+    final db = _db;
+    if (uid == null || db == null) return null;
 
-    final doc = await _db
+    final doc = await db
         .collection('users')
         .doc(uid)
         .collection('seasons')
@@ -231,9 +255,10 @@ class FirestoreService {
     String seasonId,
   ) async {
     final uid = currentUserId;
-    if (uid == null) return [];
+    final db = _db;
+    if (uid == null || db == null) return [];
 
-    final snapshot = await _db
+    final snapshot = await db
         .collection('users')
         .doc(uid)
         .collection('seasons')
@@ -252,20 +277,21 @@ class FirestoreService {
     required double avgRating,
   }) async {
     final uid = currentUserId;
-    if (uid == null) return;
+    final db = _db;
+    if (uid == null || db == null) return;
 
     final seasonId = await getActiveSeasonId();
     if (seasonId == null) return;
 
     final seasonRef =
-        _db.collection('users').doc(uid).collection('seasons').doc(seasonId);
+      db.collection('users').doc(uid).collection('seasons').doc(seasonId);
 
     final statsRef = seasonRef.collection('stats').doc('current');
     final weekRef = seasonRef.collection('weeks').doc('week_$weekNumber');
 
     final bool playerWon = playerPoints >= aiPoints;
 
-    await _db.runTransaction((transaction) async {
+    await db.runTransaction((transaction) async {
       final statsSnap = await transaction.get(statsRef);
       final weekSnap = await transaction.get(weekRef);
 

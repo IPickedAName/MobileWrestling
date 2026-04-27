@@ -4,6 +4,7 @@ import '../models/wrestler.dart';
 import '../viewmodels/simVM.dart';
 import 'appDrawer.dart';
 import '../widgets/champion_badge.dart';
+import '../theme/game_theme.dart';
 
 String _resultName(Wrestler wrestler) {
   return wrestler.name;
@@ -25,7 +26,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       builder: (context, sim, _) {
         if (sim.weekResults.isEmpty) {
           return Scaffold(
-            backgroundColor: Colors.black,
+            backgroundColor: GameTheme.bg,
             appBar: AppBar(title: const Text('Results')),
             body: const Center(
               child: Text('No results yet', style: TextStyle(color: Colors.grey)),
@@ -36,7 +37,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         final summary = sim.history.isNotEmpty ? sim.history.last : null;
 
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: GameTheme.bg,
           drawer: const AppDrawer(),
           appBar: AppBar(
             title: Text(_stepTitle),
@@ -51,16 +52,31 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
             ],
           ),
-          body: Column(
+          body: Stack(
             children: [
-              _StepIndicator(step: _step),
-              if (summary != null) _SummaryBar(summary: summary),
-              Expanded(child: _buildPage(sim)),
-              _NavBar(
-                step: _step,
-                sim: sim,
-                onNext: () => setState(() => _step++),
-                onBack: () => setState(() => _step--),
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/arena_crowd.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.68),
+                ),
+              ),
+              Column(
+                children: [
+                  _StepIndicator(step: _step),
+                  if (summary != null) _SummaryBar(summary: summary),
+                  Expanded(child: _buildPage(sim)),
+                  _NavBar(
+                    step: _step,
+                    sim: sim,
+                    onNext: () => setState(() => _step++),
+                    onBack: () => setState(() => _step--),
+                  ),
+                ],
               ),
             ],
           ),
@@ -103,7 +119,7 @@ class _StepIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     const labels = ['YOUR SHOW', 'AI SHOW', 'BREAKDOWN'];
     return Container(
-      color: const Color(0xFF0D0D0D),
+      color: GameTheme.panel,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       child: Row(
         children: List.generate(3, (i) {
@@ -161,7 +177,7 @@ class _SummaryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final lead = summary.playerPoints - summary.aiPoints;
     return Container(
-      color: const Color(0xFF111111),
+      color: const Color(0xFF121929),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -256,12 +272,12 @@ class _ResultCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: GameTheme.panel,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
             color: isGoodMatch
                 ? Colors.amber.withValues(alpha: 0.45)
-                : const Color(0xFF2A2A2A)),
+                : GameTheme.stroke),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

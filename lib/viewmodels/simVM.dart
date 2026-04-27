@@ -507,19 +507,19 @@ void resetSeasonState() {
 
   int _simulateAI() {
     aiWeekResults = [];
-    final available = aiRoster.where((w) => w.canBeBooked).toList()
-      ..sort((a, b) => (b.popularity + b.inRing).compareTo(a.popularity + a.inRing));
+    final available = _buildAIBookableRoster();
+    if (available.length < 2) return 0;
 
-    if (available.length < 8) return available.length * 15;
+    final matchesToBook = min(4, available.length ~/ 2);
 
     int aiPts = 0;
     double totalRating = 0;
 
-    for (int i = 0; i < 4; i++) {
-      final idx = (3 - i) * 2;
+    for (int i = 0; i < matchesToBook; i++) {
+      final idx = i * 2;
       final w1 = available[idx];
       final w2 = available[idx + 1];
-      final type = i == 3 ? 'Championship' : 'Singles';
+      final type = i == matchesToBook - 1 ? 'Championship' : 'Singles';
       final pos = positions[i];
 
       final rating = _engine.simulateRating(w1: w1, w2: w2, matchType: type);
@@ -555,15 +555,36 @@ void resetSeasonState() {
       _engine.updateAfterMatch(wrestler: loser, won: false, starRating: rating, wasMainEvent: i == 3);
     }
 
-    aiPts += 10;
-    final avg = totalRating / 4;
-    if (avg >= 4.5) {
-      aiPts += 25;
-    } else if (avg >= 3.75) {
-      aiPts += 15;
+    if (matchesToBook == 4) {
+      aiPts += 10;
+      final avg = totalRating / 4;
+      if (avg >= 4.5) {
+        aiPts += 25;
+      } else if (avg >= 3.75) {
+        aiPts += 15;
+      }
     }
 
     return aiPts;
+  }
+
+  List<Wrestler> _buildAIBookableRoster() {
+    int safety = 0;
+    while (aiRoster.where((w) => w.canBeBooked).length < 8 && safety < 3) {
+      for (final wrestler in aiRoster.where((w) => !w.canBeBooked)) {
+        _engine.recoverStamina(wrestler, benchedThisWeek: true);
+      }
+      safety++;
+    }
+
+    if (arcadeMode && aiRoster.where((w) => w.canBeBooked).length < 8) {
+      for (final wrestler in aiRoster.where((w) => !w.canBeBooked)) {
+        wrestler.currentStamina = max(wrestler.currentStamina, 40);
+      }
+    }
+
+    return aiRoster.where((w) => w.canBeBooked).toList()
+      ..sort((a, b) => (b.popularity + b.inRing).compareTo(a.popularity + a.inRing));
   }
 
   void advanceWeek() {

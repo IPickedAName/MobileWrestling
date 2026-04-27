@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../viewmodels/draft_VM.dart';
 import '../models/wrestler.dart';
 import '../widgets/champion_badge.dart';
+import '../theme/game_theme.dart';
 
 class DraftScreen extends StatefulWidget {
   const DraftScreen({super.key});
@@ -54,7 +55,7 @@ Widget build(BuildContext context) {
   });
 
   return Scaffold(
-    backgroundColor: const Color(0xFF0a0a0a),
+    backgroundColor: GameTheme.bg,
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -136,7 +137,13 @@ Widget build(BuildContext context) {
 
   Widget _header(BuildContext context, DraftViewModel vm) {
     return Container(
-      color: const Color(0xFF111111),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF111827), Color(0xFF0B1220)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -171,10 +178,10 @@ Widget build(BuildContext context) {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1a3a1a),
+                      color: const Color(0xFF133123),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFF4ade80), width: 0.5)),
-                  child: const Text('⚡ Auto Draft',
+                    child: const Text('Auto Draft',
                     style: TextStyle(color: Color(0xFF4ade80), fontSize: 12,
                       fontWeight: FontWeight.w600)),
                 ),
@@ -189,12 +196,12 @@ Widget build(BuildContext context) {
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2a2a2a),
+                  color: GameTheme.panel,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF555555), width: 0.5)),
+                    color: GameTheme.stroke, width: 0.8)),
                 child: const Row(children: [
-                  Text('↺ ',
+                  Text('R ',
                     style: TextStyle(color: Colors.white, fontSize: 13)),
                   Text('Restart',
                     style: TextStyle(color: Colors.grey, fontSize: 12)),
@@ -213,11 +220,18 @@ Widget build(BuildContext context) {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: vm.draftComplete
-            ? const Color(0xFF1a3a1a)
+            ? const Color(0xFF133123)
             : vm.isMyTurn
-                ? const Color(0xFFe24b4a)
-                : const Color(0xFF2a2a2a),
-        borderRadius: BorderRadius.circular(10),
+                ? const Color(0xFFBE123C)
+                : const Color(0xFF192131),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: vm.draftComplete
+              ? const Color(0xFF4ade80).withOpacity(0.35)
+              : vm.isMyTurn
+                  ? const Color(0xFFE11D48).withOpacity(0.35)
+                  : GameTheme.stroke,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -254,8 +268,9 @@ Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1a1a1a),
-        borderRadius: BorderRadius.circular(10),
+        color: GameTheme.panel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: GameTheme.stroke),
       ),
       child: Column(children: [
         Text(label,
@@ -279,9 +294,9 @@ Widget build(BuildContext context) {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFF1a3a1a),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFF4ade80), width: 1),
+            color: const Color(0xFF133123),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF4ade80).withOpacity(0.5), width: 1),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -289,10 +304,15 @@ Widget build(BuildContext context) {
               const Icon(Icons.check_circle_outline,
                 color: Color(0xFF4ade80), size: 16),
               const SizedBox(width: 6),
-              Text(
-                'End Draft  (${vm.myRoster.length} wrestlers — min 10 reached)',
-                style: const TextStyle(color: Color(0xFF4ade80),
-                  fontSize: 12, fontWeight: FontWeight.w600),
+              Flexible(
+                child: Text(
+                  'End Draft  (${vm.myRoster.length} wrestlers - min 10 reached)',
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color(0xFF4ade80),
+                    fontSize: 12, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
@@ -357,9 +377,9 @@ Widget build(BuildContext context) {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1a1a1a),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2a2a2a), width: 0.5),
+        color: GameTheme.panel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: GameTheme.stroke, width: 0.9),
       ),
       child: Row(children: [
         CircleAvatar(
@@ -415,8 +435,8 @@ Widget build(BuildContext context) {
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFe24b4a),
-                  borderRadius: BorderRadius.circular(6)),
+                  color: GameTheme.accent,
+                  borderRadius: BorderRadius.circular(8)),
                 child: const Text('Draft',
                   style: TextStyle(color: Colors.white,
                     fontSize: 11, fontWeight: FontWeight.w600)),
@@ -437,9 +457,9 @@ Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.5), width: 0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.5)),
       child: Text(label,
         style: TextStyle(color: color, fontSize: 9,
           fontWeight: FontWeight.w600)),
@@ -451,7 +471,7 @@ Widget build(BuildContext context) {
       return const SizedBox.shrink();
     }
     return Container(
-      color: const Color(0xFF111111),
+      color: GameTheme.panel,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,7 +516,7 @@ Widget build(BuildContext context) {
           Container(
             width: 1,
             height: 70,
-            color: const Color(0xFF2a2a2a),
+            color: GameTheme.stroke,
             margin: const EdgeInsets.symmetric(horizontal: 10),
           ),
           // AI side
@@ -588,8 +608,9 @@ Widget build(BuildContext context) {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFe24b4a),
-                borderRadius: BorderRadius.circular(10)),
+                color: GameTheme.accent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBE123C).withValues(alpha: 0.6))),
               child: const Text('Book Your Card →',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white, fontSize: 14,

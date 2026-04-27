@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../firestore_service.dart';
-import '../viewmodels/simVM.dart';
+import '../viewmodels/draft_VM.dart';
 import 'appDrawer.dart';
-
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -16,6 +15,7 @@ class _StatsScreenState extends State<StatsScreen> {
   final FirestoreService _firestoreService = FirestoreService();
 
   bool isLoading = true;
+  bool isRepairing = false;
   String errorMessage = '';
 
   List<Map<String, dynamic>> seasons = [];
@@ -28,6 +28,31 @@ class _StatsScreenState extends State<StatsScreen> {
   void initState() {
     super.initState();
     loadStats();
+  }
+
+  int _asInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString()) ?? 0;
+  }
+
+  double _asDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? 0;
+  }
+
+  String _formatTeamName(String name) {
+    final now = DateTime.now();
+    return 'Team "$name" ${now.month}/${now.day}';
+  }
+
+  double _winRate(int wins, int losses) {
+    final total = wins + losses;
+    if (total == 0) return 0;
+    return wins / total;
   }
 
   Future<void> loadStats() async {
@@ -60,28 +85,113 @@ class _StatsScreenState extends State<StatsScreen> {
         currentStats = stats;
         weeklyStats = weeks;
         isLoading = false;
+        errorMessage = '';
       });
     } catch (e) {
       setState(() {
-        errorMessage = 'Failed to load stats';
+        errorMessage = 'Failed to load stats: $e';
         isLoading = false;
       });
     }
   }
 
   Future<void> switchSeason(String seasonId) async {
-    await _firestoreService.setActiveSeason(seasonId);
+    try {
+      await _firestoreService.setActiveSeason(seasonId);
 
-    final loadedStats =
-        await _firestoreService.getCurrentStatsForSeason(seasonId);
-    final loadedWeeks =
-        await _firestoreService.getWeeklyStatsForSeason(seasonId);
+      final loadedStats =
+          await _firestoreService.getCurrentStatsForSeason(seasonId);
+      final loadedWeeks =
+          await _firestoreService.getWeeklyStatsForSeason(seasonId);
+
+      setState(() {
+        selectedSeasonId = seasonId;
+        currentStats = loadedStats ?? {};
+        weeklyStats = loadedWeeks;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not switch season: $e')),
+      );
+    }
+  }
+
+  Future<void> _repairSeasonFromDraft() async {
+    final draft = context.read<DraftViewModel>();
+    if (draft.myRoster.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No drafted roster found yet.')),
+      );
+      return;
+    }
+
+    final controller = TextEditingController();
+    final teamName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('Create Cloud Season', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: controller,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'Team Name',
+              hintText: 'Example: Nightmare',
+              labelStyle: TextStyle(color: Colors.white70),
+              hintStyle: TextStyle(color: Colors.white38),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final text = controller.text.trim();
+                if (text.isNotEmpty) {
+                  Navigator.pop(dialogContext, text);
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (teamName == null || teamName.trim().isEmpty) return;
 
     setState(() {
-      selectedSeasonId = seasonId;
-      currentStats = loadedStats ?? {};
-      weeklyStats = loadedWeeks;
+      isRepairing = true;
     });
+
+    try {
+      await _firestoreService.createNewSeasonFromDraft(
+        teamName: _formatTeamName(teamName.trim()),
+        roster: draft.myRoster,
+      );
+      await loadStats();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cloud season created. Stats are now connected.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create cloud season: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isRepairing = false;
+        });
+      }
+    }
   }
 
   @override
@@ -96,26 +206,53 @@ class _StatsScreenState extends State<StatsScreen> {
     if (errorMessage.isNotEmpty) {
       return Scaffold(
         backgroundColor: const Color(0xFF111111),
-        appBar: AppBar(title: const Text('Stats')),
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: const Text('Stats'),
+        ),
         body: Center(
-          child: Text(
-            errorMessage,
-            style: const TextStyle(color: Colors.white),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.redAccent, size: 42),
+                const SizedBox(height: 10),
+                Text(
+                  errorMessage,
+                  style: const TextStyle(color: Colors.white70),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                ElevatedButton(
+                  onPressed: loadStats,
+                  child: const Text('TRY AGAIN'),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    final int totalPoints = currentStats['totalPoints'] ?? 0;
-    final int wins = currentStats['wins'] ?? 0;
-    final int losses = currentStats['losses'] ?? 0;
-    final int weeksPlayed = currentStats['weeksPlayed'] ?? 0;
+    final int totalPoints = _asInt(currentStats['totalPoints']);
+    final int wins = _asInt(currentStats['wins']);
+    final int losses = _asInt(currentStats['losses']);
+    final int weeksPlayed = _asInt(currentStats['weeksPlayed']);
+    final int pointDiff = weeklyStats.fold<int>(
+      0,
+      (sum, week) => sum + (_asInt(week['playerPoints']) - _asInt(week['aiPoints'])),
+    );
 
-    final double bestRating =
-        ((currentStats['bestRating'] ?? 0.0) as num).toDouble();
+    final double bestRating = _asDouble(currentStats['bestRating']);
+    final double averageRating = _asDouble(currentStats['averageRating']);
+    final double winRate = _winRate(wins, losses);
 
-    final double averageRating =
-        ((currentStats['averageRating'] ?? 0.0) as num).toDouble();
+    final selectedSeason = seasons.where((s) => s['seasonId'] == selectedSeasonId).toList();
+    final teamName = selectedSeason.isNotEmpty
+        ? (selectedSeason.first['teamName'] ?? 'Unnamed Team').toString()
+        : 'No Active Season';
 
     return Scaffold(
       backgroundColor: const Color(0xFF111111),
@@ -124,12 +261,23 @@ class _StatsScreenState extends State<StatsScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: const Text('Stats'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: loadStats,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: loadStats,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            _seasonHero(teamName: teamName, winRate: winRate, weeksPlayed: weeksPlayed),
+
+            const SizedBox(height: 14),
+
             if (seasons.isEmpty)
               Container(
                 padding: const EdgeInsets.all(18),
@@ -138,9 +286,39 @@ class _StatsScreenState extends State<StatsScreen> {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: Colors.white12),
                 ),
-                child: const Text(
-                  'No draft season found yet. Complete a draft to create a stat sheet.',
-                  style: TextStyle(color: Colors.white70),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'No cloud season found yet.',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'If you started offline or save failed, create a cloud season from your current draft to enable stats syncing.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: isRepairing ? null : loadStats,
+                          child: const Text('RELOAD'),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: isRepairing ? null : _repairSeasonFromDraft,
+                          child: isRepairing
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('CREATE FROM DRAFT'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               )
             else
@@ -148,37 +326,22 @@ class _StatsScreenState extends State<StatsScreen> {
 
             const SizedBox(height: 20),
 
-            Row(
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
-                Expanded(child: _summaryCard('Points', '$totalPoints')),
-                const SizedBox(width: 10),
-                Expanded(child: _summaryCard('Wins', '$wins')),
-                const SizedBox(width: 10),
-                Expanded(child: _summaryCard('Losses', '$losses')),
+                _summaryCard('Points', '$totalPoints', Icons.military_tech, const Color(0xFFef4444)),
+                _summaryCard('Wins', '$wins', Icons.emoji_events_outlined, const Color(0xFF22c55e)),
+                _summaryCard('Losses', '$losses', Icons.close_rounded, const Color(0xFFf97316)),
+                _summaryCard('Weeks', '$weeksPlayed', Icons.event_note, const Color(0xFF38bdf8)),
+                _summaryCard('Best Star', bestRating.toStringAsFixed(2), Icons.star_border, const Color(0xFFfacc15)),
+                _summaryCard('Avg Star', averageRating.toStringAsFixed(2), Icons.auto_graph, const Color(0xFFa78bfa)),
               ],
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
 
-            Row(
-              children: [
-                Expanded(child: _summaryCard('Weeks', '$weeksPlayed')),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _summaryCard(
-                    'Best ★',
-                    bestRating.toStringAsFixed(2),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _summaryCard(
-                    'Avg ★',
-                    averageRating.toStringAsFixed(2),
-                  ),
-                ),
-              ],
-            ),
+            _trendCard(pointDiff: pointDiff, winRate: winRate),
 
             const SizedBox(height: 24),
 
@@ -250,25 +413,29 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _summaryCard(String title, String value) {
+  Widget _summaryCard(String title, String value, IconData icon, Color accent) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18),
+      width: 107,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: accent.withOpacity(0.35)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, color: accent, size: 18),
+          const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.redAccent,
-              fontSize: 21,
+            style: TextStyle(
+              color: accent,
+              fontSize: 19,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             title,
             style: const TextStyle(color: Colors.white70, fontSize: 13),
@@ -278,12 +445,95 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
+  Widget _seasonHero({
+    required String teamName,
+    required double winRate,
+    required int weeksPlayed,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF7f1d1d), Color(0xFF111827)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.query_stats, color: Colors.white, size: 28),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  teamName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Win rate ${(winRate * 100).toStringAsFixed(1)}%  •  $weeksPlayed weeks tracked',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _trendCard({required int pointDiff, required double winRate}) {
+    final positive = pointDiff >= 0;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161616),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            positive ? Icons.trending_up : Icons.trending_down,
+            color: positive ? const Color(0xFF4ade80) : const Color(0xFFfb7185),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Point differential: ${positive ? '+' : ''}$pointDiff   •   Conversion: ${(winRate * 100).toStringAsFixed(1)}%',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _weekTile(Map<String, dynamic> week) {
-    final int weekNumber = week['weekNumber'] ?? 0;
-    final int playerPoints = week['playerPoints'] ?? 0;
-    final int aiPoints = week['aiPoints'] ?? 0;
+    final int weekNumber = _asInt(week['weekNumber']);
+    final int playerPoints = _asInt(week['playerPoints']);
+    final int aiPoints = _asInt(week['aiPoints']);
     final String result = week['result'] ?? '';
-    final double avgRating = ((week['avgRating'] ?? 0.0) as num).toDouble();
+    final double avgRating = _asDouble(week['avgRating']);
+    final int diff = playerPoints - aiPoints;
+    final positive = diff >= 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -305,7 +555,7 @@ class _StatsScreenState extends State<StatsScreen> {
           ),
         ),
         subtitle: Text(
-          'You: $playerPoints pts • AI: $aiPoints pts • Avg ★ ${avgRating.toStringAsFixed(2)}',
+          'You $playerPoints  •  AI $aiPoints  •  Diff ${positive ? '+' : ''}$diff  •  Star ${avgRating.toStringAsFixed(2)}',
           style: const TextStyle(color: Colors.white70),
         ),
         trailing: Text(

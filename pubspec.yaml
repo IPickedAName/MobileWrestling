@@ -67,6 +67,9 @@ flutter:
     - assets/wrestlers.json
     - assets/LoginBackground.png
     - assets/WelcomeBackground.png
+    - assets/arena_crowd.jpg
+    - assets/indoor_allIN.jpg
+    - assets/pyro_entrance.jpg
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
