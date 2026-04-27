@@ -314,13 +314,14 @@ class _StatsScreenState extends State<StatsScreen> {
                       style: TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
                         OutlinedButton(
                           onPressed: isRepairing ? null : loadStats,
                           child: const Text('RELOAD'),
                         ),
-                        const SizedBox(width: 10),
                         ElevatedButton(
                           onPressed: isRepairing ? null : _repairSeasonFromDraft,
                           child: isRepairing
@@ -571,6 +572,8 @@ class _StatsScreenState extends State<StatsScreen> {
         ),
         subtitle: Text(
           'You $playerPoints  •  AI $aiPoints  •  Diff ${positive ? '+' : ''}$diff  •  Star ${avgRating.toStringAsFixed(2)}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white70),
         ),
         trailing: Text(
