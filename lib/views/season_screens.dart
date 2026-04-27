@@ -131,65 +131,68 @@ class _TeamNameStartScreenState extends State<TeamNameStartScreen> {
           Positioned.fill(
             child: Container(color: Colors.black.withValues(alpha: 0.72)),
           ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.groups,
-                    color: Color(0xFFD4AF37), size: 72),
-                const SizedBox(height: 18),
-                const Text(
-                  'Name Your Draft Team',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text('This will appear on your Stats page.',
-                    style: TextStyle(color: Colors.grey)),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: teamNameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Team Name',
-                    hintText: 'Example: Nightmare',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    hintStyle: TextStyle(color: Colors.white38),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isStarting ? null : _startSeason,
-                    child: isStarting
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('START SEASON'),
-                  ),
-                ),
-                if (saveFailed) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: isStarting ? null : _retrySave,
-                      child: const Text('RETRY ONLINE SAVE'),
-                    ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.groups,
+                      color: Color(0xFFD4AF37), size: 72),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Name Your Draft Team',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: isStarting ? null : _startLocally,
-                      child: const Text('CONTINUE OFFLINE'),
+                  const Text('This will appear on your Stats page.',
+                      style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: teamNameController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Team Name',
+                      hintText: 'Example: Nightmare',
+                      labelStyle: TextStyle(color: Colors.white70),
+                      hintStyle: TextStyle(color: Colors.white38),
+                      border: OutlineInputBorder(),
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isStarting ? null : _startSeason,
+                      child: isStarting
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('START SEASON'),
+                    ),
+                  ),
+                  if (saveFailed) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: isStarting ? null : _retrySave,
+                        child: const Text('RETRY ONLINE SAVE'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: isStarting ? null : _startLocally,
+                        child: const Text('CONTINUE OFFLINE'),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -227,57 +230,67 @@ class SeasonOverScreen extends StatelessWidget {
           Positioned.fill(
             child: Container(color: Colors.black.withValues(alpha: 0.72)),
           ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  playerWon
-                      ? Icons.emoji_events
-                      : Icons.sentiment_dissatisfied,
-                  color: playerWon ? Colors.amber : Colors.grey,
-                  size: 72,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  playerWon ? 'YOU WIN THE SEASON!' : 'AI WINS THE SEASON',
-                  style: TextStyle(
-                    color: playerWon
-                        ? const Color(0xFFCC0000)
-                        : Colors.grey,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    playerWon
+                        ? Icons.emoji_events
+                        : Icons.sentiment_dissatisfied,
+                    color: playerWon ? Colors.amber : Colors.grey,
+                    size: 72,
                   ),
-                ),
-                const SizedBox(height: 28),
-                Text('You  ${sim.playerTotalPoints} pts',
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 20)),
-                const SizedBox(height: 6),
-                Text('AI   ${sim.aiTotalPoints} pts',
-                    style: const TextStyle(
-                        color: Colors.grey, fontSize: 20)),
-                const SizedBox(height: 36),
-                ElevatedButton(
-                  onPressed: () {
-                    draft.restartDraft();
-                    sim.resetSeasonState();
-                    Navigator.pushNamedAndRemoveUntil(
-                        context, '/home', (route) => false);
-                  },
-                  child: const Text('NEW GAME SETUP'),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () {
-                    draft.restartDraft();
-                    sim.resetSeasonState();
-                    Navigator.pushNamedAndRemoveUntil(
-                        context, '/home', (route) => false);
-                  },
-                  child: const Text('BACK TO HOME'),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Text(
+                    playerWon ? 'YOU WIN THE SEASON!' : 'AI WINS THE SEASON',
+                    style: TextStyle(
+                      color: playerWon
+                          ? const Color(0xFFCC0000)
+                          : Colors.grey,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 28),
+                  Text('You  ${sim.playerTotalPoints} pts',
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 20)),
+                  const SizedBox(height: 6),
+                  Text('AI   ${sim.aiTotalPoints} pts',
+                      style: const TextStyle(
+                          color: Colors.grey, fontSize: 20)),
+                  const SizedBox(height: 36),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        draft.restartDraft();
+                        sim.resetSeasonState();
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, '/home', (route) => false);
+                      },
+                      child: const Text('NEW GAME SETUP'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        draft.restartDraft();
+                        sim.resetSeasonState();
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, '/home', (route) => false);
+                      },
+                      child: const Text('BACK TO HOME'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

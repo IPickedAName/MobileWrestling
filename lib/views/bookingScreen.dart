@@ -168,12 +168,14 @@ class _BookingScreenState extends State<BookingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Roster: ${sim.playerRoster.length} total  â€¢  ${sim.availableWrestlers.length} available this week',
+                      'Roster: ${sim.playerRoster.length} total  •  ${sim.availableWrestlers.length} available this week',
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Cash: ${draft.seasonCashDisplay}',
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF4ade80),
                         fontSize: 12,
@@ -183,6 +185,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'Mode: ${draft.gameModeLabel}',
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: draft.isArcadeMode
                             ? const Color(0xFFfacc15)
@@ -193,7 +196,8 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${sim.playerRoster.where((w) => w.currentStamina < 50).length} wrestlers below 50 stamina. Use promo or rest slots to recover.',
+                      '${sim.playerRoster.where((w) => w.currentStamina < 50).length} below 50 stamina — use promo/rest slots to recover.',
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],

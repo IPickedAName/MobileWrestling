@@ -4,8 +4,6 @@ import '../../viewmodels/simVM.dart';
 import '../../utils/wrestler_display.dart';
 import 'booking_slot_widgets.dart';
 
-// ─── REST SLOT CARD ─────────────────────────────────────────────────────────
-
 class BookingRestSlotCard extends StatelessWidget {
   final int index;
   final RestBooking? booking;

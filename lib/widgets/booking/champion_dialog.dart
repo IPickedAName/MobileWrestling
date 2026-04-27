@@ -44,7 +44,7 @@ class _ChampionSelectionDialogState extends State<ChampionSelectionDialog> {
       title: const Text('Assign Your Champions',
           style: TextStyle(color: Colors.white)),
       content: SizedBox(
-        width: 360,
+        width: double.maxFinite,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
