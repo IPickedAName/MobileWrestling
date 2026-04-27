@@ -151,29 +151,33 @@ Widget build(BuildContext context) {
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                child: const Icon(Icons.menu, color: Colors.white70, size: 20),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 18),
-              ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false),
-                child: const Icon(Icons.home_outlined, color: Colors.white54, size: 20),
-              ),
-              const SizedBox(width: 10),
-              const Text('Snake Draft',
-                style: TextStyle(color: Colors.white, fontSize: 20,
-                  fontWeight: FontWeight.w600)),
-            ],
+          Expanded(
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  child: const Icon(Icons.menu, color: Colors.white70, size: 20),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false),
+                  child: const Icon(Icons.home_outlined, color: Colors.white54, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Flexible(
+                  child: Text('Snake Draft',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white, fontSize: 20,
+                      fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
           ),
           Row(children: [
             Text('Pick ${vm.pickNumber}',
@@ -244,15 +248,17 @@ Widget build(BuildContext context) {
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            vm.draftComplete ? 'DRAFT COMPLETE'
-              : vm.isMyTurn ? 'YOUR PICK' : 'AI IS PICKING...',
-            style: TextStyle(
-              color: vm.draftComplete
-                ? const Color(0xFF4ade80) : Colors.white,
-              fontSize: 13, fontWeight: FontWeight.w600),
+          Expanded(
+            child: Text(
+              vm.draftComplete ? 'DRAFT COMPLETE'
+                : vm.isMyTurn ? 'YOUR PICK' : 'AI IS PICKING...',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: vm.draftComplete
+                  ? const Color(0xFF4ade80) : Colors.white,
+                fontSize: 13, fontWeight: FontWeight.w600),
+            ),
           ),
           Text('Budget: ${vm.myBudgetDisplay}',
             style: const TextStyle(color: Colors.white70, fontSize: 12)),
@@ -422,11 +428,14 @@ Widget build(BuildContext context) {
                 const SizedBox(width: 4),
                 _pill(w.wrestlerClass, _classColor(w.wrestlerClass)),
                 const SizedBox(width: 6),
-                Text(
-                  'IR ${w.inRing}  POP ${w.popularity}'
-                  '  STA ${w.currentStamina}',
-                  style: const TextStyle(
-                    color: Colors.grey, fontSize: 10)),
+                Flexible(
+                  child: Text(
+                    'IR ${w.inRing}  POP ${w.popularity}'
+                    '  STA ${w.currentStamina}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.grey, fontSize: 10)),
+                ),
               ]),
             ],
           ),
