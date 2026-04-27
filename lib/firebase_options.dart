@@ -25,11 +25,11 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIza...',
-    appId: '1:123456:ios:abc123',
-    messagingSenderId: '123456',
-    projectId: 'wrestler-66b71',
-    storageBucket: 'wrestler-66b71.appspot.com',
-    iosBundleId: 'com.example.wrestlerFantasyBooker',
-  );
+  apiKey: 'AIzaSyBVoyZTImMuLP8In0-9B1sZHQsRjnTT4TY',
+  appId: '1:6432039174:ios:f371f5c5696cb5bd94be87',
+  messagingSenderId: '6432039174',
+  projectId: 'wrestler-66b71',
+  storageBucket: 'wrestler-66b71.firebasestorage.app',
+  iosBundleId: 'com.example.wrestlerFantasyBooker',
+);
 }
