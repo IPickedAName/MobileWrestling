@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../firestore_service.dart';
 import '../theme/game_theme.dart';
 import 'appDrawer.dart';
+import '../widgets/app_nav.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -19,7 +20,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       backgroundColor: GameTheme.bg,
       drawer: const AppDrawer(),
       appBar: AppBar(
+        leading: AppNav.backButton(context),
         title: const Text('Global Leaderboard'),
+        actions: [AppNav.menuButton()],
       ),
       body: Column(
         children: [

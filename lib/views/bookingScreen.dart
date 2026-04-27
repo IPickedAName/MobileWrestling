@@ -7,6 +7,7 @@ import 'appDrawer.dart';
 import '../widgets/champion_badge.dart';
 import '../firestore_service.dart';
 import '../theme/game_theme.dart';
+import '../widgets/app_nav.dart';
 
 String _nameWithChampionTag(Wrestler wrestler) {
   return wrestler.name;
@@ -141,6 +142,7 @@ if (sim.seasonOver) {
           backgroundColor: GameTheme.bg,
           drawer: const AppDrawer(),
           appBar: AppBar(
+            leading: AppNav.backButton(context),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -151,6 +153,7 @@ if (sim.seasonOver) {
               ],
             ),
             actions: [
+              AppNav.menuButton(),
               IconButton(
                 tooltip: 'Auto book',
                 onPressed: sim.seasonStarted && !sim.weekSimulated
@@ -904,7 +907,11 @@ class _NoDraftScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.black,
       drawer: const AppDrawer(),
-      appBar: AppBar(title: const Text('Book Your Card')),
+      appBar: AppBar(
+        leading: AppNav.backButton(context),
+        title: const Text('Book Your Card'),
+        actions: [AppNav.menuButton()],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1045,7 +1052,9 @@ class _TeamNameStartScreenState extends State<_TeamNameStartScreen> {
       backgroundColor: Colors.black,
       drawer: const AppDrawer(),
       appBar: AppBar(
+        leading: AppNav.backButton(context),
         title: const Text('Name Your Team'),
+        actions: [AppNav.menuButton()],
       ),
       body: Stack(
         children: [
@@ -1147,8 +1156,9 @@ class _SeasonOverScreen extends StatelessWidget {
       backgroundColor: Colors.black,
       drawer: const AppDrawer(),
       appBar: AppBar(
+        leading: AppNav.backButton(context),
         title: const Text('Season Over'),
-        automaticallyImplyLeading: false,
+        actions: [AppNav.menuButton()],
       ),
       body: Stack(
         children: [

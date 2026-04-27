@@ -40,6 +40,28 @@ class FirestoreService {
     if (value is num) return value.toDouble();
     return double.tryParse(value.toString()) ?? 0.0;
   }
+
+  Future<void> _trySyncGlobalLeaderboard({
+    required String seasonId,
+    required int totalPoints,
+    required int wins,
+    required int losses,
+    required int weeksPlayed,
+    required double averageRating,
+  }) async {
+    try {
+      await syncGlobalLeaderboard(
+        seasonId: seasonId,
+        totalPoints: totalPoints,
+        wins: wins,
+        losses: losses,
+        weeksPlayed: weeksPlayed,
+        averageRating: averageRating,
+      );
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+    }
+  }
   Future<String> uploadProfileImage(File imageFile) async {
   final uid = currentUserId;
   final db = _db;
@@ -183,7 +205,7 @@ class FirestoreService {
       'activeSeasonId': seasonRef.id,
     }, SetOptions(merge: true));
 
-    await syncGlobalLeaderboard(
+    await _trySyncGlobalLeaderboard(
       seasonId: seasonRef.id,
       totalPoints: 0,
       wins: 0,
@@ -382,7 +404,7 @@ class FirestoreService {
       syncedAverageRating = newAverageRating;
     });
 
-    await syncGlobalLeaderboard(
+    await _trySyncGlobalLeaderboard(
       seasonId: seasonId,
       totalPoints: syncedTotalPoints,
       wins: syncedWins,
@@ -446,7 +468,7 @@ class FirestoreService {
     if (seasonId == null || seasonId.isEmpty) return;
 
     final stats = await getCurrentStatsForSeason(seasonId) ?? <String, dynamic>{};
-    await syncGlobalLeaderboard(
+    await _trySyncGlobalLeaderboard(
       seasonId: seasonId,
       totalPoints: _toInt(stats['totalPoints']),
       wins: _toInt(stats['wins']),

@@ -4,6 +4,7 @@ import 'appDrawer.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../theme/game_theme.dart';
+import '../widgets/app_nav.dart';
 
 
 class ProfileScreen extends StatefulWidget {
@@ -183,8 +184,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: GameTheme.bg,
       drawer: const AppDrawer(),
       appBar: AppBar(
+        leading: AppNav.backButton(context),
         title: const Text('Profile'),
         actions: [
+          AppNav.menuButton(),
           IconButton(
             onPressed: openEditProfile,
             icon: const Icon(Icons.edit),

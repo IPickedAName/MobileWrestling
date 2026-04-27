@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../firestore_service.dart';
 import '../viewmodels/draft_VM.dart';
 import 'appDrawer.dart';
+import '../widgets/app_nav.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -202,9 +203,11 @@ class _StatsScreenState extends State<StatsScreen> {
         backgroundColor: const Color(0xFF111111),
         drawer: const AppDrawer(),
         appBar: AppBar(
+          leading: AppNav.backButton(context),
           backgroundColor: _tnaBlue,
           foregroundColor: Colors.white,
           title: const Text('Stats'),
+          actions: [AppNav.menuButton()],
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -215,9 +218,11 @@ class _StatsScreenState extends State<StatsScreen> {
         backgroundColor: const Color(0xFF111111),
         drawer: const AppDrawer(),
         appBar: AppBar(
+          leading: AppNav.backButton(context),
           backgroundColor: _tnaBlue,
           foregroundColor: Colors.white,
           title: const Text('Stats'),
+          actions: [AppNav.menuButton()],
         ),
         body: Center(
           child: Padding(
@@ -266,10 +271,12 @@ class _StatsScreenState extends State<StatsScreen> {
       backgroundColor: const Color(0xFF111111),
       drawer: const AppDrawer(),
       appBar: AppBar(
+        leading: AppNav.backButton(context),
         backgroundColor: _tnaBlue,
         foregroundColor: Colors.white,
         title: const Text('Stats'),
         actions: [
+          AppNav.menuButton(),
           IconButton(
             tooltip: 'Refresh',
             onPressed: loadStats,

@@ -24,7 +24,11 @@ class AuthService {
           uid: user.uid,
           email: user.email ?? email.trim(),
         );
-        await _firestoreService.syncActiveSeasonToLeaderboard();
+        try {
+          await _firestoreService.syncActiveSeasonToLeaderboard();
+        } catch (_) {
+          // Global leaderboard can be blocked by stricter Firestore rules.
+        }
       }
 
       return user;
@@ -52,7 +56,11 @@ class AuthService {
           uid: user.uid,
           email: user.email ?? email.trim(),
         );
-        await _firestoreService.syncActiveSeasonToLeaderboard();
+        try {
+          await _firestoreService.syncActiveSeasonToLeaderboard();
+        } catch (_) {
+          // Global leaderboard can be blocked by stricter Firestore rules.
+        }
       }
 
       return user;

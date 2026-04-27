@@ -5,6 +5,7 @@ import '../viewmodels/simVM.dart';
 import 'appDrawer.dart';
 import '../widgets/champion_badge.dart';
 import '../theme/game_theme.dart';
+import '../widgets/app_nav.dart';
 
 const Color kTnaBlue = Color(0xFF1E40AF);
 
@@ -30,7 +31,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
           return Scaffold(
             backgroundColor: GameTheme.bg,
             drawer: const AppDrawer(),
-            appBar: AppBar(title: const Text('Results')),
+            appBar: AppBar(
+              leading: AppNav.backButton(context),
+              title: const Text('Results'),
+              actions: [AppNav.menuButton()],
+            ),
             body: const Center(
               child: Text('No results yet', style: TextStyle(color: Colors.grey)),
             ),
@@ -43,9 +48,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
           backgroundColor: GameTheme.bg,
           drawer: const AppDrawer(),
           appBar: AppBar(
+            leading: AppNav.backButton(context),
             title: Text(_stepTitle),
-            automaticallyImplyLeading: false,
             actions: [
+              AppNav.menuButton(),
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Center(

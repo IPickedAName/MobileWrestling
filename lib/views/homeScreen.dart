@@ -6,6 +6,7 @@ import '../viewmodels/draft_VM.dart';
 import '../viewmodels/simVM.dart';
 import '../theme/game_theme.dart';
 import 'appDrawer.dart';
+import '../widgets/app_nav.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -362,7 +363,9 @@ class HomeScreen extends StatelessWidget {
       drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Season Hub'),
+        leading: AppNav.backButton(context, fallbackRoute: '/welcome'),
         actions: [
+          AppNav.menuButton(),
           IconButton(
             onPressed: () => _logout(context),
             icon: const Icon(Icons.logout),
@@ -370,27 +373,27 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
         children: [
           _hero(draft),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
 
           _sectionLabel('Game Setup'),
           _modePanel(context, draft),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           _budgetPanel(context, draft),
           if (!setupLocked)
             const Padding(
-              padding: EdgeInsets.only(top: 8, left: 2),
+              padding: EdgeInsets.only(top: 10, left: 2),
               child: Text(
                 'Setup unlocks your economy style before draft. Once picks start, setup locks.',
                 style: TextStyle(color: Color(0xFF95A0B3), fontSize: 12),
               ),
             ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
 
-          _sectionLabel('Core Loop'),
+          _sectionLabel('Promotion Circuit'),
           _homeCard(
             context: context,
             icon: Icons.groups,
@@ -399,7 +402,7 @@ class HomeScreen extends StatelessWidget {
             color: Colors.redAccent,
             onTap: () => Navigator.pushNamed(context, '/draft'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           _homeCard(
             context: context,
             icon: Icons.sports_kabaddi,
@@ -408,7 +411,7 @@ class HomeScreen extends StatelessWidget {
             color: Colors.purpleAccent,
             onTap: () => Navigator.pushNamed(context, '/booking'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           _homeCard(
             context: context,
             icon: Icons.bar_chart,
@@ -417,7 +420,7 @@ class HomeScreen extends StatelessWidget {
             color: Colors.greenAccent,
             onTap: () => Navigator.pushNamed(context, '/stats'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           _homeCard(
             context: context,
             icon: Icons.person,
@@ -427,9 +430,10 @@ class HomeScreen extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, '/profile'),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 24),
 
           _sectionLabel('Utilities'),
+          const SizedBox(height: 6),
           _uploadUtilityCard(context),
         ],
       ),
