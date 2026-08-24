@@ -1,17 +1,3 @@
 # wrestler_fantasy_booker
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+A cross-platform mobile app simulating running a fantasy wrestling promotion — drafting talent, booking matches, and running a season — built with Flutter and Firebase using an MVVM + Provider architecture. I designed custom data structures for season simulation, snake-draft logic, and leaderboard ranking, backed by a Firestore storage layer with Firebase Authentication and cloud-synced profiles. Along the way I diagnosed and fixed several production reliability issues — Firebase initialization race conditions, lifecycle navigation bugs, and Firestore security-rule gaps — using console logs to trace root causes, which improved system stability and enforced proper per-user data isolation.
